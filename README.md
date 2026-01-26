@@ -1,5 +1,9 @@
 # Budget Tracker
 
+[![CI/CD Pipeline](https://github.com/YOUR_USERNAME/budget-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USERNAME/budget-tracker/actions/workflows/ci.yml)
+
+# Budget Tracker
+
 A personal budget tracking application build with Next.js, Typescript, and Supabase.
 
 ## Features (Coming Soon)
