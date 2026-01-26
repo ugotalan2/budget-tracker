@@ -1,3 +1,22 @@
+# Budget Tracker
+
+A personal budget tracking application build with Next.js, Typescript, and Supabase.
+
+## Features (Coming Soon)
+
+- Track expenses
+- Set budget limits
+- Visualize spending with charts
+- FIFO inventory-style expense tracking
+
+## Tech Stack
+
+- Next.js 15
+- TypeScript
+- Tailwind CSS
+- Supabase (PostgreSQL)
+- Recharts
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
