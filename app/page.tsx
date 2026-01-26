@@ -1,4 +1,4 @@
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 
 export default async function Home() {
   const supabase = await createServerSupabaseClient();
@@ -14,7 +14,9 @@ export default async function Home() {
       ) : (
         <p className="text-green-500"> Database Connected Successfully!</p>
       )}
-      <p className="mt-2 text-gray-600">Expenses in database: {data?.[0]?.count ?? 0}</p>
+      <p className="mt-2 text-gray-600">
+        Expenses in database: {data?.[0]?.count ?? 0}
+      </p>
     </div>
   );
 }
