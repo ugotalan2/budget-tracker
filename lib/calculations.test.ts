@@ -132,7 +132,7 @@ describe('Calculation utilities', () => {
 
     it('handles different months', () => {
       // Use mid-month date to avoid timezone edge cases
-    expect(getMonthLabel('2024-12-15')).toBe('December 2024');
+      expect(getMonthLabel('2024-12-15')).toBe('December 2024');
     });
   });
 });
