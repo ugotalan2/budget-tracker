@@ -1,6 +1,6 @@
 # Budget Tracker
 
-[![CI/CD Pipeline](https://github.com/ugotalan2/budget-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USERNAME/budget-tracker/actions/workflows/ci.yml)
+[![CI/CD Pipeline](https://github.com/ugotalan2/budget-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/ugotalan2/budget-tracker/actions/workflows/ci.yml)
 
 # Budget Tracker
 
