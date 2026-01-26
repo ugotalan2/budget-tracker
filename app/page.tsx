@@ -1,7 +1,20 @@
-export default function Home() {
+import { createServerSupabaseClient } from "@/lib/supabase/server";
+
+export default async function Home() {
+  const supabase = await createServerSupabaseClient();
+
+  // Test db connection
+  const { data, error } = await supabase.from('expenses').select('count');
+
   return (
-    <div className="flex min-h-screen items-center justify-center">
+    <div className="flex min-h-screen flex-col items-center justify-center p-24">
       <h1 className="text-4xl font-bold">Budget Tracker</h1>
+      {error ? (
+        <p className="text-red-500"> Database Error: {error.message}</p>
+      ) : (
+        <p className="text-green-500"> Database Connected Successfully!</p>
+      )}
+      <p className="mt-2 text-gray-600">Expenses in database: {data?.[0]?.count ?? 0}</p>
     </div>
   );
 }
