@@ -1,8 +1,8 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import Link from 'next/link';
 
 export default async function Home() {
   const supabase = await createServerSupabaseClient();
-
   const { data, error } = await supabase.from('expenses').select('count');
 
   return (
@@ -16,6 +16,15 @@ export default async function Home() {
       <p className="mt-2 text-gray-600">
         Expenses in database: {data?.[0]?.count ?? 0}
       </p>
+
+      <div className="mt-8 flex gap-4">
+        <Link
+          href="/expenses"
+          className="rounded-md bg-blue-600 px-6 py-3 text-white hover:bg-blue-700"
+        >
+          Go to Expenses
+        </Link>
+      </div>
     </div>
   );
 }
