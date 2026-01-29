@@ -55,3 +55,24 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+
+## To do
+1. Infinite scroll
+2. export to CSV
+3. Date Range Picker
+4. Search - by description
+5. Dark Mode
+6. Recurring Expenses
+7. Budget Alerts
+8. Charts/Visualizations
+9. Category Management
+10. Receipt Upload - Photo + OCR to extract data
+11. Shared Budget - multiple users
+12. Mobile App
+13. Offline Mode
+14. Passkeys
+15. Plaid
+16. W-2 calcs
+17. Predicting future expenses (yearly/semi-annual/quarterly/etc) - insurance, taxes, maintenance, etc
+	- how to handle rolling budgets - almost like a savings account that builds up for larger expenses

@@ -24,6 +24,12 @@ export default async function Home() {
         >
           Go to Expenses
         </Link>
+        <Link
+          href="/budgets"
+          className="rounded-md bg-green-600 px-6 py-3 text-white hover:bg-green-700"
+        >
+          Budgets
+        </Link>
       </div>
     </div>
   );
