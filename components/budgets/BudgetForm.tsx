@@ -12,7 +12,7 @@ type BudgetFormProps = {
   }) => Promise<void>;
   initialData?: {
     category: Category;
-    limit_amount: number;
+    limit_amount: number | ''; // Allow empty string
     month: string;
   };
   isEditing?: boolean;

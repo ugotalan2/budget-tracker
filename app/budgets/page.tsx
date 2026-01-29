@@ -65,7 +65,9 @@ export default function BudgetsPage() {
       .gte('month', monthStart)
       .lt('month', monthEnd);
 
-    setFormExistingCategories(data?.map((b) => b.category) || []);
+    setFormExistingCategories(
+      data?.map((budget: Budget) => budget.category) || []
+    );
   };
 
   // Initialize form categories and month when editing changes
@@ -122,8 +124,8 @@ export default function BudgetsPage() {
   // Calculate spending for each category
   const getSpendingForCategory = (category: string) => {
     return expenses
-      .filter((exp) => exp.category === category)
-      .reduce((sum, exp) => sum + exp.amount, 0);
+      .filter((expense) => expense.category === category)
+      .reduce((sum, expense) => sum + expense.amount, 0);
   };
 
   // Calculate budget status
@@ -170,7 +172,7 @@ export default function BudgetsPage() {
 
     // Check if budget already exists for this category/month
     const exists = existingBudgets?.some(
-      (b) => b.category === budgetData.category
+      (budget: Budget) => budget.category === budgetData.category
     );
 
     if (exists) {
@@ -243,19 +245,20 @@ export default function BudgetsPage() {
 
   // Calculate overall stats
   const overallStats = {
-    totalBudget: budgets.reduce((sum, b) => sum + b.limit_amount, 0),
-    totalSpent: budgets.reduce((sum, b) => {
-      const status = getBudgetStatus(b);
+    totalBudget: budgets.reduce((sum, budget) => sum + budget.limit_amount, 0),
+    totalSpent: budgets.reduce((sum, budget) => {
+      const status = getBudgetStatus(budget);
       return sum + status.spent;
     }, 0),
-    categoriesOverBudget: budgets.filter((b) => getBudgetStatus(b).isOverBudget)
-      .length,
-    categoriesOnTrack: budgets.filter((b) => {
-      const status = getBudgetStatus(b);
+    categoriesOverBudget: budgets.filter(
+      (budget) => getBudgetStatus(budget).isOverBudget
+    ).length,
+    categoriesOnTrack: budgets.filter((budget) => {
+      const status = getBudgetStatus(budget);
       return !status.isOverBudget && status.percentage < 90;
     }).length,
-    categoriesWarning: budgets.filter((b) => {
-      const status = getBudgetStatus(b);
+    categoriesWarning: budgets.filter((budget) => {
+      const status = getBudgetStatus(budget);
       return !status.isOverBudget && status.percentage >= 90;
     }).length,
   };
