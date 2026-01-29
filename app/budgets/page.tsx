@@ -21,6 +21,10 @@ export default function BudgetsPage() {
     new Date().toISOString().slice(0, 7)
   );
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
+  const [formExistingCategories, setFormExistingCategories] = useState<
+    Category[]
+  >([]);
+  const [formMonth, setFormMonth] = useState(selectedMonth);
   const supabase = createClient();
 
   // Fetch budgets for selected month
@@ -46,6 +50,37 @@ export default function BudgetsPage() {
     }
 
     if (showLoader) setIsLoading(false);
+  };
+
+  // Fetch existing categories for a specific month (for the form)
+  const fetchExistingCategoriesForMonth = async (month: string) => {
+    const monthStart = month + '-01';
+    const nextMonth = new Date(month + '-01');
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+    const monthEnd = nextMonth.toISOString().slice(0, 10);
+
+    const { data } = await supabase
+      .from('budgets')
+      .select('category')
+      .gte('month', monthStart)
+      .lt('month', monthEnd);
+
+    setFormExistingCategories(data?.map((b) => b.category) || []);
+  };
+
+  // Initialize form categories and month when editing changes
+  useEffect(() => {
+    if (!editingBudget) {
+      setFormMonth(selectedMonth);
+      fetchExistingCategoriesForMonth(selectedMonth);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingBudget, selectedMonth]);
+
+  // handle form month change
+  const handleFormMonthChange = async (newMonth: string) => {
+    setFormMonth(newMonth);
+    await fetchExistingCategoriesForMonth(newMonth);
   };
 
   // Fetch expenses for selected month
@@ -115,11 +150,32 @@ export default function BudgetsPage() {
     const devUserId = '00000000-0000-0000-0000-000000000000';
 
     // Check if budget already exists for this category/month
-    const exists = budgets.some((b) => b.category === budgetData.category);
+    const monthToCheck = budgetData.month.slice(0, 7);
+
+    // Fetch budgets for the month we're adding to
+    const { data: existingBudgets } = await supabase
+      .from('budgets')
+      .select('category')
+      .gte('month', budgetData.month)
+      .lt(
+        'month',
+        new Date(
+          new Date(budgetData.month).setMonth(
+            new Date(budgetData.month).getMonth() + 1
+          )
+        )
+          .toISOString()
+          .slice(0, 10)
+      );
+
+    // Check if budget already exists for this category/month
+    const exists = existingBudgets?.some(
+      (b) => b.category === budgetData.category
+    );
 
     if (exists) {
       alert(
-        `You already have a budget for ${budgetData.category} this month. Delete it first or click Edit.`
+        `You already have a budget for ${budgetData.category} in ${new Date(budgetData.month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}. Delete it first or click Edit.`
       );
       return;
     }
@@ -138,7 +194,13 @@ export default function BudgetsPage() {
       return;
     }
 
-    await fetchBudgets();
+    // Refresh display if we added to the currently displayed month
+    if (monthToCheck === selectedMonth) {
+      await fetchBudgets();
+    }
+
+    // Refresh form categories for the form's current month
+    await fetchExistingCategoriesForMonth(monthToCheck);
   };
 
   // Update budget
@@ -214,8 +276,6 @@ export default function BudgetsPage() {
     );
   }
 
-  const existingCategories = budgets.map((b) => b.category);
-
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -260,7 +320,7 @@ export default function BudgetsPage() {
               )}
 
               <BudgetForm
-                key={editingBudget ? editingBudget.id : selectedMonth} // force remount to reset form state
+                key={editingBudget ? `edit-${editingBudget.id}` : 'add-budget'}
                 onSubmit={
                   editingBudget
                     ? (data) => handleUpdateBudget(editingBudget.id, data)
@@ -275,12 +335,13 @@ export default function BudgetsPage() {
                       }
                     : {
                         category: 'Food' as Category,
-                        limit_amount: 0,
-                        month: selectedMonth, // Use currently selected month
+                        limit_amount: '',
+                        month: formMonth, // Use currently selected month
                       }
                 }
                 isEditing={!!editingBudget}
-                existingCategories={existingCategories}
+                existingCategories={formExistingCategories}
+                onMonthChange={handleFormMonthChange}
               />
             </div>
           </div>
@@ -433,7 +494,7 @@ export default function BudgetsPage() {
                   {budgets.map((budget) => {
                     const status = getBudgetStatus(budget);
                     return (
-                      <div key={budget.id} className="relative">
+                      <div key={budget.id} className="relative p-4 shadow-sm">
                         <BudgetProgress
                           category={budget.category}
                           limitAmount={budget.limit_amount}
@@ -441,7 +502,7 @@ export default function BudgetsPage() {
                           percentage={status.percentage}
                           isOverBudget={status.isOverBudget}
                         />
-                        <div className="absolute right-2 top-2 flex gap-2">
+                        <div className="absolute right-8 bottom-6 flex gap-2">
                           <button
                             onClick={() => setEditingBudget(budget)}
                             className="text-sm font-medium text-blue-600 hover:text-blue-800"

@@ -17,6 +17,7 @@ type BudgetFormProps = {
   };
   isEditing?: boolean;
   existingCategories?: string[];
+  onMonthChange?: (month: string) => void;
 };
 
 export default function BudgetForm({
@@ -24,6 +25,7 @@ export default function BudgetForm({
   initialData,
   isEditing = false,
   existingCategories = [],
+  onMonthChange,
 }: BudgetFormProps) {
   const [category, setCategory] = useState<Category>(
     initialData?.category || 'Food'
@@ -124,7 +126,14 @@ export default function BudgetForm({
         <select
           id="month"
           value={month}
-          onChange={(e) => setMonth(e.target.value)}
+          onChange={(e) => {
+            const newMonth = e.target.value;
+            setMonth(newMonth);
+            // Fetch categories for new month (without changing display)
+            if (!isEditing && onMonthChange) {
+              onMonthChange(newMonth);
+            }
+          }}
           className={`mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
             isEditing ? 'bg-gray-100 cursor-not-allowed' : ''
           }`}
