@@ -4,16 +4,23 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { type Expense, type Budget } from '@/lib/types';
 import { formatCurrency } from '@/lib/calculations';
+import CategoryChart from '@/components/dashboard/CategoryChart';
+import SpendingTrendChart from '@/components/dashboard/SpendingTrendChart';
+import BudgetComparisonChart from '@/components/dashboard/BudgetComparisonChart';
+import {
+  generateMonthOptions,
+  getPreviousMonth,
+  getNextMonth,
+} from '@/lib/dateUtils';
 
 export default function DashboardPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  // const [selectedMonth, setSelectedMonth] = useState(
-  // new Date().toISOString().slice(0, 7)
-  // );
-  const [selectedMonth] = useState(new Date().toISOString().slice(0, 7));
-
+  const [selectedMonth, setSelectedMonth] = useState(
+    new Date().toISOString().slice(0, 7)
+  );
+  const [prevMonthExpenses, setPrevMonthExpenses] = useState<Expense[]>([]);
   const supabase = createClient();
 
   // Fetch data for selected month
@@ -24,7 +31,14 @@ export default function DashboardPage() {
     nextMonth.setMonth(nextMonth.getMonth() + 1);
     const monthEnd = nextMonth.toISOString().slice(0, 10);
 
-    const [expensesResults, budgetsResults] = await Promise.all([
+    // Previous month dates
+    const prevMonthDate = getPreviousMonth(selectedMonth);
+    const prevMonthStart = prevMonthDate + '-01';
+    const prevMonthNext = new Date(prevMonthDate + '-01');
+    prevMonthNext.setMonth(prevMonthNext.getMonth() + 1);
+    const prevMonthEnd = prevMonthNext.toISOString().slice(0, 10);
+
+    const [expensesRes, budgetsRes, prevExpensesRes] = await Promise.all([
       supabase
         .from('expenses')
         .select('*')
@@ -36,10 +50,16 @@ export default function DashboardPage() {
         .select('*')
         .gte('month', monthStart)
         .lt('month', monthEnd),
+      supabase
+        .from('expenses')
+        .select('*')
+        .gte('date', prevMonthStart)
+        .lt('date', prevMonthEnd),
     ]);
 
-    if (expensesResults.data) setExpenses(expensesResults.data);
-    if (budgetsResults.data) setBudgets(budgetsResults.data);
+    if (expensesRes.data) setExpenses(expensesRes.data);
+    if (budgetsRes.data) setBudgets(budgetsRes.data);
+    if (prevExpensesRes.data) setPrevMonthExpenses(prevExpensesRes.data);
     setIsLoading(false);
   };
 
@@ -58,15 +78,55 @@ export default function DashboardPage() {
   const budgetUsedPercentage =
     totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
 
-  // Get spending by category
-  //   const spendingByCategory = expenses.reduce(
-  //     (category, expense) => {
-  //       category[expense.category] =
-  //         (category[expense.category] || 0) + expense.amount;
-  //       return category;
-  //     },
-  //     {} as Record<string, number>
-  //   );
+  // Month-over-month comparison
+  const prevMonthTotal = prevMonthExpenses.reduce(
+    (sum, exp) => sum + exp.amount,
+    0
+  );
+  const monthOverMonthChange =
+    prevMonthTotal > 0
+      ? ((totalSpent - prevMonthTotal) / prevMonthTotal) * 100
+      : 0;
+  const isIncreased = totalSpent > prevMonthTotal;
+
+  // Prepare data for charts
+  const categoryChartData = Object.entries(
+    expenses.reduce(
+      (categories, expense) => {
+        categories[expense.category] =
+          (categories[expense.category] || 0) + expense.amount;
+        return categories;
+      },
+      {} as Record<string, number>
+    )
+  ).map(([category, amount]) => ({ category, amount }));
+
+  // Spending trend by day
+  const spendingByDay = expenses.reduce(
+    (categories, expense) => {
+      categories[expense.date] =
+        (categories[expense.date] || 0) + expense.amount;
+      return categories;
+    },
+    {} as Record<string, number>
+  );
+
+  const trendChartData = Object.entries(spendingByDay)
+    .map(([date, amount]) => ({ date, amount }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  // Budget comparison data
+  const budgetComparisonData = budgets.map((budget) => {
+    const spent = expenses
+      .filter((expense) => expense.category === budget.category)
+      .reduce((sum, expense) => sum + expense.amount, 0);
+
+    return {
+      category: budget.category,
+      budget: budget.limit_amount,
+      spent,
+    };
+  });
 
   // Number of transactions
   const transactionCount = expenses.length;
@@ -90,15 +150,44 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="mt-2 text-gray-600">
-            Your spending overview for{' '}
-            {new Date(selectedMonth + '-01').toLocaleDateString('en-US', {
-              month: 'long',
-              year: 'numeric',
-            })}
-          </p>
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+            <p className="mt-2 text-gray-600">
+              Your spending overview for{' '}
+              {new Date(selectedMonth + '-01').toLocaleDateString('en-US', {
+                month: 'long',
+                year: 'numeric',
+              })}
+            </p>
+          </div>
+
+          {/* Month Navigation */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSelectedMonth(getPreviousMonth(selectedMonth))}
+              className="rounded-md border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50"
+            >
+              ← Prev
+            </button>
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              {generateMonthOptions(12).map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => setSelectedMonth(getNextMonth(selectedMonth))}
+              className="rounded-md border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50"
+            >
+              Next →
+            </button>
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -240,45 +329,274 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Placeholder for charts - we'll add these next */}
-        <div className="grid gap-8 lg:grid-cols-2">
+        {/* Month Comparison */}
+        {prevMonthExpenses.length > 0 && (
+          <div className="mb-8 rounded-lg border-2 border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Month-over-Month Change
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Compared to{' '}
+                  {new Date(
+                    getPreviousMonth(selectedMonth) + '-01'
+                  ).toLocaleDateString('en-US', {
+                    month: 'long',
+                    year: 'numeric',
+                  })}
+                </p>
+              </div>
+              <div className="text-right">
+                <div className="flex items-center gap-2">
+                  {isIncreased ? (
+                    <svg
+                      className="h-6 w-6 text-red-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"
+                      />
+                    </svg>
+                  ) : (
+                    <svg
+                      className="h-6 w-6 text-green-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+                      />
+                    </svg>
+                  )}
+                  <span
+                    className={`text-2xl font-bold ${
+                      isIncreased ? 'text-red-600' : 'text-green-600'
+                    }`}
+                  >
+                    {isIncreased ? '+' : '-'}
+                    {Math.abs(monthOverMonthChange).toFixed(1)}%
+                  </span>
+                </div>
+                <p className="text-sm text-gray-600">
+                  {formatCurrency(Math.abs(totalSpent - prevMonthTotal))}{' '}
+                  {isIncreased ? 'more' : 'less'} than last month
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-4 border-t border-gray-300 pt-4">
+              <div>
+                <p className="text-sm text-gray-600">Last Month</p>
+                <p className="text-xl font-bold text-gray-900">
+                  {formatCurrency(prevMonthTotal)}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">This Month</p>
+                <p className="text-xl font-bold text-gray-900">
+                  {formatCurrency(totalSpent)}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Charts Grid */}
+        <div className="mb-8 grid gap-8 lg:grid-cols-2">
+          {/* Category Breakdown */}
           <div className="rounded-lg bg-white p-6 shadow">
             <h2 className="mb-4 text-lg font-semibold text-gray-900">
               Spending by Category
             </h2>
-            <p className="text-gray-500">Chart coming next...</p>
+            <CategoryChart data={categoryChartData} />
           </div>
 
+          {/* Spending Trend */}
           <div className="rounded-lg bg-white p-6 shadow">
             <h2 className="mb-4 text-lg font-semibold text-gray-900">
-              Recent Transactions
+              Daily Spending
             </h2>
-            <div className="space-y-3">
-              {expenses.slice(0, 5).map((expense) => (
-                <div
-                  key={expense.id}
-                  className="flex items-center justify-between border-b border-gray-100 pb-3 last:border-0"
-                >
-                  <div>
-                    <p className="font-medium text-gray-900">
-                      {expense.description || expense.category}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      {new Date(expense.date).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-gray-900">
-                      {formatCurrency(expense.amount)}
-                    </p>
-                    <p className="text-sm text-gray-500">{expense.category}</p>
-                  </div>
+            <SpendingTrendChart data={trendChartData} />
+          </div>
+        </div>
+
+        {/* Budget Comparison */}
+        <div className="mb-8 rounded-lg bg-white p-6 shadow">
+          <h2 className="mb-4 text-lg font-semibold text-gray-900">
+            Budget vs Actual
+          </h2>
+          <BudgetComparisonChart data={budgetComparisonData} />
+        </div>
+
+        {/* Spending Insights */}
+        <div className="mb-8 rounded-lg bg-white p-6 shadow">
+          <h2 className="mb-4 text-lg font-semibold text-gray-900">
+            Spending Insights
+          </h2>
+          <div className="space-y-4">
+            {/* Highest spending category */}
+            {categoryChartData.length > 0 && (
+              <div className="flex items-start gap-3 rounded-lg bg-blue-50 p-4">
+                <div className="rounded-full bg-blue-100 p-2">
+                  <svg
+                    className="h-5 w-5 text-blue-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+                    />
+                  </svg>
                 </div>
-              ))}
-              {expenses.length === 0 && (
-                <p className="text-center text-gray-500">No transactions yet</p>
-              )}
-            </div>
+                <div className="flex-1">
+                  <p className="font-medium text-gray-900">Highest Spending</p>
+                  <p className="text-sm text-gray-600">
+                    <strong>{categoryChartData[0].category}</strong> is your top
+                    expense at{' '}
+                    <strong>
+                      {formatCurrency(categoryChartData[0].amount)}
+                    </strong>
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Budget status */}
+            {budgets.length > 0 && (
+              <div className="flex items-start gap-3 rounded-lg bg-yellow-50 p-4">
+                <div className="rounded-full bg-yellow-100 p-2">
+                  <svg
+                    className="h-5 w-5 text-yellow-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium text-gray-900">Budget Status</p>
+                  <p className="text-sm text-gray-600">
+                    {budgetUsedPercentage > 100 ? (
+                      <>
+                        You&apos;ve exceeded your budget by{' '}
+                        <strong className="text-red-600">
+                          {formatCurrency(Math.abs(remainingBudget))}
+                        </strong>
+                      </>
+                    ) : budgetUsedPercentage > 90 ? (
+                      <>
+                        You&apos;ve used{' '}
+                        <strong className="text-yellow-600">
+                          {budgetUsedPercentage.toFixed(1)}%
+                        </strong>{' '}
+                        of your budget
+                      </>
+                    ) : (
+                      <>
+                        You have{' '}
+                        <strong className="text-green-600">
+                          {formatCurrency(remainingBudget)}
+                        </strong>{' '}
+                        remaining in your budget
+                      </>
+                    )}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Transaction insights */}
+            {expenses.length > 0 && (
+              <div className="flex items-start gap-3 rounded-lg bg-purple-50 p-4">
+                <div className="rounded-full bg-purple-100 p-2">
+                  <svg
+                    className="h-5 w-5 text-purple-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                    />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium text-gray-900">
+                    Transaction Average
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Your average transaction is{' '}
+                    <strong>{formatCurrency(avgTransaction)}</strong> across{' '}
+                    <strong>{transactionCount} purchases</strong>
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Empty state */}
+            {expenses.length === 0 && (
+              <div className="rounded-lg border-2 border-dashed border-gray-300 p-8 text-center">
+                <p className="text-gray-500">
+                  No expenses yet. Start tracking to see insights!
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Recent Transactions */}
+        <div className="rounded-lg bg-white p-6 shadow">
+          <h2 className="mb-4 text-lg font-semibold text-gray-900">
+            Recent Transactions
+          </h2>
+          <div className="space-y-3">
+            {expenses.slice(0, 5).map((expense) => (
+              <div
+                key={expense.id}
+                className="flex items-center justify-between border-b border-gray-100 pb-3 last:border-0"
+              >
+                <div>
+                  <p className="font-medium text-gray-900">
+                    {expense.description || expense.category}
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    {new Date(expense.date).toLocaleDateString()}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="font-semibold text-gray-900">
+                    {formatCurrency(expense.amount)}
+                  </p>
+                  <p className="text-sm text-gray-500">{expense.category}</p>
+                </div>
+              </div>
+            ))}
+            {expenses.length === 0 && (
+              <p className="text-center text-gray-500">No transactions yet</p>
+            )}
           </div>
         </div>
       </div>
