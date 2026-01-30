@@ -18,6 +18,7 @@ type BudgetFormProps = {
   isEditing?: boolean;
   existingCategories?: string[];
   onMonthChange?: (month: string) => void;
+  defaultMonth?: string;
 };
 
 export default function BudgetForm({
@@ -26,30 +27,48 @@ export default function BudgetForm({
   isEditing = false,
   existingCategories = [],
   onMonthChange,
+  defaultMonth,
 }: BudgetFormProps) {
+  // Filter out categories that already have budgets (unless editing)
+  const availableCategories = isEditing
+    ? CATEGORIES
+    : CATEGORIES.filter(
+        (catategory) => !existingCategories.includes(catategory)
+      );
+
   const [category, setCategory] = useState<Category>(
-    initialData?.category || 'Food'
+    initialData?.category || availableCategories[0] || 'Food'
   );
   const [limitAmount, setLimitAmount] = useState(
-    initialData?.limit_amount.toString() || ''
+    initialData?.limit_amount ? initialData.limit_amount.toString() : ''
   );
-  const [month, setMonth] = useState(initialData?.month || '');
+  const [month, setMonth] = useState(
+    initialData?.month || defaultMonth || new Date().toISOString().slice(0, 7)
+  );
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  // update category when available categories change
   useEffect(() => {
-    if (initialData) {
+    if (!isEditing && !initialData && availableCategories.length > 0) {
+      // Set to first available if current category isn't available
+      if (!availableCategories.includes(category)) {
+        setCategory(availableCategories[0]);
+      }
+    }
+  }, [availableCategories, isEditing, initialData, category]);
+
+  // Update form when editing
+  useEffect(() => {
+    if (initialData && isEditing) {
       setCategory(initialData.category);
-      setLimitAmount(initialData.limit_amount.toString());
+      setLimitAmount(
+        initialData.limit_amount ? initialData.limit_amount.toString() : ''
+      );
       setMonth(initialData.month);
     }
-  }, [initialData]);
-
-  // Filter out categories that already have budgets (unless editing)
-  const availableCategories = isEditing
-    ? CATEGORIES
-    : CATEGORIES.filter((cat) => !existingCategories.includes(cat));
+  }, [initialData, isEditing]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

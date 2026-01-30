@@ -1,4 +1,5 @@
 import { formatCurrency } from '@/lib/calculations';
+import BudgetMenu from './BudgetMenu';
 
 type BudgetProgressProps = {
   category: string;
@@ -6,6 +7,8 @@ type BudgetProgressProps = {
   spent: number;
   percentage: number;
   isOverBudget: boolean;
+  onEdit?: () => void;
+  onDelete?: () => void;
 };
 
 export default function BudgetProgress({
@@ -14,6 +17,8 @@ export default function BudgetProgress({
   spent,
   percentage,
   isOverBudget,
+  onEdit,
+  onDelete,
 }: BudgetProgressProps) {
   const remaining = limitAmount - spent;
 
@@ -31,8 +36,16 @@ export default function BudgetProgress({
   };
 
   return (
-    <div className="rounded-lg border border-gray-200 p-4">
-      <div className="mb-2 flex items-center justify-between">
+    <div className="relative rounded-lg border border-gray-200 p-4">
+      {/* Menu in top-right inside the card */}
+      {onEdit && onDelete && (
+        <div className="absolute right-3 top-3">
+          <BudgetMenu onEdit={onEdit} onDelete={onDelete} />
+        </div>
+      )}
+
+      <div className="mb-2 flex items-center justify-between pr-10">
+        {/* Added pr-10 to make room for menu */}
         <div>
           <h3 className="font-medium text-gray-900">{category}</h3>
           <p className="text-sm text-gray-500">

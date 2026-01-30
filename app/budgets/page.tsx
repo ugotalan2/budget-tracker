@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Category, type Budget, type Expense } from '@/lib/types';
 import BudgetForm from '@/components/budgets/BudgetForm';
@@ -26,6 +26,8 @@ export default function BudgetsPage() {
   >([]);
   const [formMonth, setFormMonth] = useState(selectedMonth);
   const supabase = createClient();
+  const formRef = useRef<HTMLDivElement>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Fetch budgets for selected month
   const fetchBudgets = async (showLoader = true) => {
@@ -143,6 +145,26 @@ export default function BudgetsPage() {
     };
   };
 
+  // helper to format yyyy-mm to Month Year w/o timezone issues
+  const formatMonthYear = (monthString: string) => {
+    const [year, month] = monthString.split('-');
+    const monthNames = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    return `${monthNames[parseInt(month) - 1]} ${year}`;
+  };
+
   // Add budget
   const handleAddBudget = async (budgetData: {
     category: string;
@@ -150,34 +172,11 @@ export default function BudgetsPage() {
     month: string;
   }) => {
     const devUserId = '00000000-0000-0000-0000-000000000000';
+    const targetMonth = budgetData.month.slice(0, 7);
 
-    // Check if budget already exists for this category/month
-    const monthToCheck = budgetData.month.slice(0, 7);
-
-    // Fetch budgets for the month we're adding to
-    const { data: existingBudgets } = await supabase
-      .from('budgets')
-      .select('category')
-      .gte('month', budgetData.month)
-      .lt(
-        'month',
-        new Date(
-          new Date(budgetData.month).setMonth(
-            new Date(budgetData.month).getMonth() + 1
-          )
-        )
-          .toISOString()
-          .slice(0, 10)
-      );
-
-    // Check if budget already exists for this category/month
-    const exists = existingBudgets?.some(
-      (budget: Budget) => budget.category === budgetData.category
-    );
-
-    if (exists) {
+    if (formExistingCategories.includes(budgetData.category as Category)) {
       alert(
-        `You already have a budget for ${budgetData.category} in ${new Date(budgetData.month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}. Delete it first or click Edit.`
+        `You already have a ${budgetData.category} budget for ${formatMonthYear(targetMonth)}. Delete it first or click Edit.`
       );
       return;
     }
@@ -197,12 +196,12 @@ export default function BudgetsPage() {
     }
 
     // Refresh display if we added to the currently displayed month
-    if (monthToCheck === selectedMonth) {
+    if (targetMonth === selectedMonth) {
       await fetchBudgets();
     }
 
     // Refresh form categories for the form's current month
-    await fetchExistingCategoriesForMonth(monthToCheck);
+    await fetchExistingCategoriesForMonth(targetMonth);
   };
 
   // Update budget
@@ -234,12 +233,19 @@ export default function BudgetsPage() {
       return;
     }
 
+    setDeletingId(id);
+
     const { error } = await supabase.from('budgets').delete().eq('id', id);
 
     if (error) {
       alert('Failed to delete budget');
+      setDeletingId(null);
     } else {
-      await fetchBudgets();
+      // Remove from local state instead of refetching
+      setBudgets(budgets.filter((b) => b.id !== id));
+      // Update form categories
+      await fetchExistingCategoriesForMonth(formMonth);
+      setDeletingId(null);
     }
   };
 
@@ -267,6 +273,16 @@ export default function BudgetsPage() {
     overallStats.totalBudget > 0
       ? (overallStats.totalSpent / overallStats.totalBudget) * 100
       : 0;
+
+  // Update the editing state setter
+  const handleEditClick = (budget: Budget) => {
+    setEditingBudget(budget);
+
+    // Scroll to form smoothly
+    setTimeout(() => {
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  };
 
   if (isLoading && !isNavigating) {
     return (
@@ -304,7 +320,7 @@ export default function BudgetsPage() {
 
         <div className="grid gap-8 lg:grid-cols-3">
           {/* Form Column */}
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-1" ref={formRef}>
             <div className="rounded-lg bg-white p-6 shadow">
               <h2 className="mb-4 text-lg font-semibold text-gray-900">
                 {editingBudget ? 'Edit Budget' : 'Set Budget'}
@@ -336,15 +352,12 @@ export default function BudgetsPage() {
                         limit_amount: editingBudget.limit_amount,
                         month: editingBudget.month.slice(0, 7),
                       }
-                    : {
-                        category: 'Food' as Category,
-                        limit_amount: '',
-                        month: formMonth, // Use currently selected month
-                      }
+                    : undefined // Changed this
                 }
                 isEditing={!!editingBudget}
                 existingCategories={formExistingCategories}
                 onMonthChange={handleFormMonthChange}
+                defaultMonth={formMonth}
               />
             </div>
           </div>
@@ -493,32 +506,26 @@ export default function BudgetsPage() {
                   </p>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-">
                   {budgets.map((budget) => {
                     const status = getBudgetStatus(budget);
                     return (
-                      <div key={budget.id} className="relative p-4 shadow-sm">
+                      <div
+                        key={budget.id}
+                        className="relative rounded-lg border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow"
+                      >
                         <BudgetProgress
                           category={budget.category}
                           limitAmount={budget.limit_amount}
                           spent={status.spent}
                           percentage={status.percentage}
                           isOverBudget={status.isOverBudget}
+                          onEdit={() => handleEditClick(budget)}
+                          onDelete={() => handleDelete(budget.id)}
+                          className={
+                            deletingId === budget.id ? 'opacity-50 ' : ''
+                          }
                         />
-                        <div className="absolute right-8 bottom-6 flex gap-2">
-                          <button
-                            onClick={() => setEditingBudget(budget)}
-                            className="text-sm font-medium text-blue-600 hover:text-blue-800"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDelete(budget.id)}
-                            className="text-sm font-medium text-red-600 hover:text-red-800"
-                          >
-                            Delete
-                          </button>
-                        </div>
                       </div>
                     );
                   })}
