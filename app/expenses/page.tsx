@@ -1,12 +1,20 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  ChevronDown,
+  Download,
+} from 'lucide-react';
 import ExpenseForm from '@/components/expenses/ExpenseForm';
 import { formatCurrency } from '@/lib/calculations';
 import { createClient } from '@/lib/supabase/client';
 import { CATEGORIES, Expense } from '@/lib/types';
+import { exportExpensesToCSV } from '@/lib/exportUtils';
 import EditExpenseModal from '@/components/expenses/EditExpenseModal';
+import ExpenseActionsMenu from '@/components/expenses/ExpenseActionsMenu';
 import {
   generateMonthOptions,
   getPreviousMonth,
@@ -170,6 +178,21 @@ export default function ExpensesPage() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  // Generate filter description for export menu
+  const filterLabel = (() => {
+    const parts: string[] = [];
+
+    if (categoryFilter !== 'All') {
+      parts.push(`${categoryFilter} expenses`);
+    }
+
+    if (debouncedSearch) {
+      parts.push(`matching "${debouncedSearch}"`);
+    }
+
+    return parts.length > 0 ? parts.join(' ') : 'All expenses';
+  })();
+
   // Add expense
   const handleAddExpense = async (expenseData: {
     amount: number;
@@ -233,6 +256,79 @@ export default function ExpensesPage() {
     // Refresh list
     await fetchExpenses(true);
     await fetchSummary();
+  };
+
+  // Export visible expenses
+  const handleExportVisible = () => {
+    exportExpensesToCSV(expenses, {
+      category: categoryFilter !== 'All' ? categoryFilter : undefined,
+      label: 'visible',
+    });
+  };
+
+  // Export all matching expenses (fetch without pagination)
+  const handleExportAll = async () => {
+    let query = supabase.from('expenses').select('*');
+
+    // Apply same filters as current view
+    if (categoryFilter !== 'All') {
+      query = query.eq('category', categoryFilter);
+    }
+
+    if (debouncedSearch.trim()) {
+      query = query.ilike('description', `%${debouncedSearch}%`);
+    }
+
+    // Apply sorting
+    const ascending = sortOrder === 'asc';
+    if (sortBy === 'date') {
+      query = query.order('date', { ascending });
+    } else {
+      query = query.order('amount', { ascending });
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      alert('Failed to fetch expenses for export');
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      alert('No expenses to export');
+      return;
+    }
+
+    exportExpensesToCSV(data, {
+      category: categoryFilter !== 'All' ? categoryFilter : undefined,
+      label: 'all',
+    });
+  };
+
+  // Export current month
+  const handleExportMonth = async () => {
+    const { start, end } = getMonthBoundariesFromString(summaryMonth);
+
+    const { data, error } = await supabase
+      .from('expenses')
+      .select('*')
+      .gte('date', start)
+      .lte('date', end)
+      .order('date', { ascending: false });
+
+    if (error) {
+      alert('Failed to fetch expenses for export');
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      alert('No expenses to export for this month');
+      return;
+    }
+
+    exportExpensesToCSV(data, {
+      month: summaryMonth,
+    });
   };
 
   if (isLoading && expenses.length === 0) {
@@ -328,9 +424,26 @@ export default function ExpensesPage() {
               {/* Category breakdown */}
               {Object.keys(summaryStats.byCategory).length > 0 && (
                 <div className="space-y-1.5">
-                  <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    By Category
-                  </h3>
+                  <div className="mb-3 flex items-center justify-between">
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      By Category
+                    </h3>
+                    <button
+                      onClick={() => {
+                        // Export all expenses for this month
+                        const monthExpenses = expenses.filter((exp) =>
+                          exp.date.startsWith(summaryMonth)
+                        );
+                        exportExpensesToCSV(monthExpenses, {
+                          month: summaryMonth,
+                        });
+                      }}
+                      className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-blue-600 hover:bg-blue-50"
+                    >
+                      <Download className="h-3 w-3" />
+                      Export Month
+                    </button>
+                  </div>
                   {Object.entries(summaryStats.byCategory)
                     .sort(([, a], [, b]) => b - a)
                     .map(([category, amount]) => (
@@ -416,6 +529,16 @@ export default function ExpensesPage() {
                       <option value="date">Sort by Date</option>
                       <option value="amount">Sort by Amount</option>
                     </select>
+                    <select
+                      value={sortBy}
+                      onChange={(e) =>
+                        setSortBy(e.target.value as 'date' | 'amount')
+                      }
+                      className="rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                      <option value="date">Sort by Date</option>
+                      <option value="amount">Sort by Amount</option>
+                    </select>
                     <button
                       onClick={() =>
                         setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
@@ -423,7 +546,11 @@ export default function ExpensesPage() {
                       className="rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50"
                       title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
                     >
-                      {sortOrder === 'asc' ? '↑' : '↓'}
+                      {sortOrder === 'asc' ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
                     </button>
                     <select
                       value={categoryFilter}
@@ -437,6 +564,19 @@ export default function ExpensesPage() {
                         </option>
                       ))}
                     </select>
+                    {/* Three-dot menu */}
+                    <ExpenseActionsMenu
+                      onExportVisible={handleExportVisible}
+                      onExportAll={handleExportAll}
+                      onExportMonth={handleExportMonth}
+                      visibleCount={expenses.length}
+                      monthLabel={
+                        summaryMonth === currentMonth
+                          ? 'This month'
+                          : formatMonthYear(summaryMonth)
+                      }
+                      filterLabel={filterLabel}
+                    />
                   </div>
                 </div>
               </div>
