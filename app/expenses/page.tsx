@@ -1,85 +1,158 @@
 'use client';
 
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import ExpenseForm from '@/components/expenses/ExpenseForm';
 import { formatCurrency } from '@/lib/calculations';
 import { createClient } from '@/lib/supabase/client';
 import { CATEGORIES, Expense } from '@/lib/types';
-import { useEffect, useState } from 'react';
 import EditExpenseModal from '@/components/expenses/EditExpenseModal';
+import {
+  generateMonthOptions,
+  getPreviousMonth,
+  getNextMonth,
+  getMonthBoundariesFromString,
+  formatMonthYear,
+} from '@/lib/dateUtils';
 
 export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const supabase = createClient();
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
   const [sortBy, setSortBy] = useState<'date' | 'amount'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [summaryStats, setSummaryStats] = useState({
+    totalSpent: 0,
+    expenseCount: 0,
+    byCategory: {} as Record<string, number>,
+  });
+  const [summaryMonth, setSummaryMonth] = useState(
+    new Date().toISOString().slice(0, 7)
+  );
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const canGoForward = summaryMonth < currentMonth;
+  // pagination state
+  const [hasMore, setHasMore] = useState(true);
+  const [offset, setOffset] = useState(0);
+  const LIMIT = 20; // Load 20 expenses at a time
+
+  const supabase = createClient();
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   // fetch expenses
-  const fetchExpenses = async () => {
-    setIsLoading(true);
-    const { data, error } = await supabase
-      .from('expenses')
-      .select('*')
-      .order('date', { ascending: false });
+  const fetchExpenses = useCallback(
+    async (reset = false) => {
+      setIsLoading(true);
 
-    if (error) {
-      // console.error('Error fetching expenses:', error);
-    } else {
-      setExpenses(data || []);
-    }
-    setIsLoading(false);
-  };
+      const currentOffset = reset ? 0 : offset;
 
-  // Sort expenses
-  const sortedExpenses = [...expenses].sort((a, b) => {
-    if (sortBy === 'date') {
-      const comparison =
-        new Date(a.date).getTime() - new Date(b.date).getTime();
-      return sortOrder === 'asc' ? comparison : -comparison;
-    } else {
-      const comparison = a.amount - b.amount;
-      return sortOrder === 'asc' ? comparison : -comparison;
-    }
-  });
+      let query = supabase.from('expenses').select('*');
 
-  // Apply category filter to sorted expenses
-  const filteredExpenses =
-    categoryFilter === 'All'
-      ? sortedExpenses
-      : sortedExpenses.filter((exp) => exp.category === categoryFilter);
+      // Apply category filter
+      if (categoryFilter !== 'All') {
+        query = query.eq('category', categoryFilter);
+      }
 
-  // Calculate totals
-  const totalSpent = expenses.reduce((sum, expense) => sum + expense.amount, 0);
-  const expenseByCategory = expenses.reduce(
-    (sum, expense) => {
-      sum[expense.category] = (sum[expense.category] || 0) + expense.amount;
-      return sum;
+      // Apply sorting
+      const ascending = sortOrder === 'asc';
+      if (sortBy === 'date') {
+        query = query.order('date', { ascending });
+      } else {
+        query = query.order('amount', { ascending });
+      }
+
+      // Apply pagination
+      query = query.range(currentOffset, currentOffset + LIMIT - 1);
+
+      const { data, error } = await query;
+
+      if (!error && data) {
+        if (reset) {
+          setExpenses(data || []);
+          setOffset(LIMIT);
+        } else {
+          setExpenses((prev) => [...prev, ...(data || [])]);
+          setOffset(currentOffset + LIMIT);
+        }
+
+        // check if there are more expenses
+        setHasMore(data.length === LIMIT);
+      }
+
+      setIsLoading(false);
     },
-    {} as Record<string, number>
+    [offset, categoryFilter, sortBy, sortOrder, supabase]
   );
 
+  // Fetch summary stats for current month
+  const fetchSummary = useCallback(async () => {
+    const { start, end } = getMonthBoundariesFromString(summaryMonth);
+
+    const { data, error } = await supabase
+      .from('expenses')
+      .select('amount, category')
+      .gte('date', start)
+      .lte('date', end);
+
+    if (!error && data) {
+      const totalSpent = data.reduce(
+        (sum: number, expense: Expense) => sum + expense.amount,
+        0
+      );
+      const byCategory = data.reduce(
+        (categories: Record<string, number>, expense: Expense) => {
+          categories[expense.category] =
+            (categories[expense.category] || 0) + expense.amount;
+          return categories;
+        },
+        {} as Record<string, number>
+      );
+
+      setSummaryStats({
+        totalSpent,
+        expenseCount: data.length,
+        byCategory,
+      });
+    }
+  }, [summaryMonth, supabase]);
+
+  // Initial load
   useEffect(() => {
-    const loadExpenses = async () => {
-      setIsLoading(true);
-      const { data, error } = await supabase
-        .from('expenses')
-        .select('*')
-        .order('date', { ascending: false });
+    fetchExpenses(true);
+    fetchSummary();
+  }, [fetchExpenses, fetchSummary]);
 
-      if (error) {
-        // console.error('Error fetching expenses:', error);
-      } else {
-        setExpenses(data || []);
-      }
-      setIsLoading(false);
-    };
+  // reset when filters/sort change
+  useEffect(() => {
+    setOffset(0);
+    fetchExpenses(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoryFilter, sortBy, sortOrder, fetchExpenses]);
 
-    loadExpenses();
-    // Alternatively, just call fetchExpenses():
-    // fetchExpenses();
-  }, [supabase]);
+  // Infinite scroll observer
+  useEffect(() => {
+    if (!loadMoreRef.current || isLoading || !hasMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          fetchExpenses(false);
+        }
+      },
+      { threshold: 1.0 }
+    );
+
+    observer.observe(loadMoreRef.current);
+
+    return () => observer.disconnect();
+  }, [isLoading, hasMore, offset, fetchExpenses]);
+
+  // Reset when month changes
+  useEffect(() => {
+    fetchSummary();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [summaryMonth, fetchSummary]);
 
   // Add expense
   const handleAddExpense = async (expenseData: {
@@ -91,14 +164,6 @@ export default function ExpensesPage() {
     // TEMPORARY: Use a test user ID for development
     const devUserId = '00000000-0000-0000-0000-000000000000';
 
-    // const {
-    // 	data: { user },
-    // } = await supabase.auth.getUser();
-
-    // if (!user) {
-    // 	throw new Error('You must be logged in to add expenses.');
-    // }
-
     const { error } = await supabase.from('expenses').insert({
       user_id: devUserId,
       ...expenseData,
@@ -109,7 +174,8 @@ export default function ExpensesPage() {
     }
 
     // Refresh list
-    await fetchExpenses();
+    await fetchExpenses(true);
+    await fetchSummary();
   };
 
   const handleDelete = async (id: string) => {
@@ -123,8 +189,9 @@ export default function ExpensesPage() {
       // console.error('Error deleting expense:', error);
       alert('Failed to delete expense.');
     } else {
-      // Refresh list
-      await fetchExpenses();
+      // remove from local state
+      setExpenses((prev) => prev.filter((expense) => expense.id !== id));
+      await fetchSummary();
     }
   };
 
@@ -148,10 +215,11 @@ export default function ExpensesPage() {
     }
 
     // Refresh list
-    await fetchExpenses();
+    await fetchExpenses(true);
+    await fetchSummary();
   };
 
-  if (isLoading) {
+  if (isLoading && expenses.length === 0) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -178,6 +246,92 @@ export default function ExpensesPage() {
                 Add Expense
               </h2>
               <ExpenseForm onSubmit={handleAddExpense} />
+            </div>
+
+            {/* Expense Summary Card */}
+            <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+              {/* Month/Year Display - Centered */}
+              <div className="mb-2 text-center">
+                <h2 className="text-xl font-bold text-gray-900">
+                  {summaryMonth === currentMonth
+                    ? 'This Month'
+                    : formatMonthYear(summaryMonth)}
+                </h2>
+              </div>
+
+              {/* Navigation Controls - Centered, Fixed Width */}
+              <div className="mb-6 flex items-center justify-center gap-2">
+                <button
+                  onClick={() =>
+                    setSummaryMonth(getPreviousMonth(summaryMonth))
+                  }
+                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition-all hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600"
+                  title="Previous month"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <select
+                  value={summaryMonth}
+                  onChange={(e) => setSummaryMonth(e.target.value)}
+                  className="h-9 w-40 rounded-lg border border-gray-200 bg-white px-3 text-center text-sm font-medium text-gray-700 shadow-sm transition-all hover:border-gray-300 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                >
+                  {generateMonthOptions(12, 1).map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => setSummaryMonth(getNextMonth(summaryMonth))}
+                  disabled={!canGoForward}
+                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition-all hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:border-gray-200 disabled:hover:bg-white disabled:hover:text-gray-500"
+                  title="Next month"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Total spent card */}
+              <div className="mb-4 rounded-xl bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">
+                      Total Spent
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {summaryStats.expenseCount} transaction
+                      {summaryStats.expenseCount !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                  <p className="text-3xl font-bold text-gray-900">
+                    {formatCurrency(summaryStats.totalSpent)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Category breakdown */}
+              {Object.keys(summaryStats.byCategory).length > 0 && (
+                <div className="space-y-1.5">
+                  <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    By Category
+                  </h3>
+                  {Object.entries(summaryStats.byCategory)
+                    .sort(([, a], [, b]) => b - a)
+                    .map(([category, amount]) => (
+                      <div
+                        key={category}
+                        className="group flex items-center justify-between rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-gray-50"
+                      >
+                        <span className="font-medium text-gray-700 transition-colors group-hover:text-gray-900">
+                          {category}
+                        </span>
+                        <span className="font-semibold text-gray-900">
+                          {formatCurrency(amount)}
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -224,112 +378,95 @@ export default function ExpensesPage() {
               </div>
 
               {expenses.length === 0 ? (
-                <p className="text-center text-gray-500 py-8">
-                  No expenses yet. Add your first expense to get started!
-                </p>
+                <div className="text-center py-8">
+                  <p className="text-gray-500">
+                    {categoryFilter === 'All'
+                      ? 'No expenses yet. Add your first expense to get started!'
+                      : `No ${categoryFilter} expenses found.`}
+                  </p>
+                </div>
               ) : (
-                <div className="space-y-4">
-                  {filteredExpenses.length === 0 ? (
-                    <div className="text-center py-8">
-                      <p className="text-gray-500">
-                        {categoryFilter === 'All'
-                          ? 'No expenses yet. Add your first expense to get started!'
-                          : `No ${categoryFilter} expenses found.`}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {filteredExpenses.map((expense) => (
-                        <div
-                          key={expense.id}
-                          className="flex items-center justify-between border-b border-gray-200 pb-4 last:border-0"
-                        >
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3">
-                              <span className="rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-800">
-                                {expense.category}
-                              </span>
-                              <span className="text-lg font-semibold text-gray-900">
-                                {formatCurrency(expense.amount)}
-                              </span>
-                            </div>
-                            {expense.description && (
-                              <p className="mt-1 text-sm text-gray-600">
-                                {expense.description}
-                              </p>
-                            )}
-                            <p className="mt-1 text-sm text-gray-500">
-                              {new Date(expense.date).toLocaleDateString(
-                                'en-US',
-                                {
-                                  year: 'numeric',
-                                  month: 'long',
-                                  day: 'numeric',
-                                }
-                              )}
-                            </p>
+                <>
+                  <div className="space-y-4">
+                    {expenses.map((expense) => (
+                      <div
+                        key={expense.id}
+                        className="flex items-center justify-between border-b border-gray-200 pb-4 last:border-0"
+                      >
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3">
+                            <span className="rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-800">
+                              {expense.category}
+                            </span>
+                            <span className="text-lg font-semibold text-gray-900">
+                              {formatCurrency(expense.amount)}
+                            </span>
                           </div>
-                          <button
-                            onClick={() => setEditingExpense(expense)}
-                            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDelete(expense.id)}
-                            className="ml-4 text-red-600 hover:text-red-800 text-sm font-medium"
-                          >
-                            Delete
-                          </button>
+                          {expense.description && (
+                            <p className="mt-1 text-sm text-gray-600">
+                              {expense.description}
+                            </p>
+                          )}
+                          <p className="mt-1 text-sm text-gray-500">
+                            {new Date(expense.date).toLocaleDateString(
+                              'en-US',
+                              {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                              }
+                            )}
+                          </p>
                         </div>
-                      ))}
+                        {/* Action Buttons: Might need to rap this in a div ml-4 flex gap-2 */}
+                        <button
+                          onClick={() => setEditingExpense(expense)}
+                          className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(expense.id)}
+                          className="ml-4 text-red-600 hover:text-red-800 text-sm font-medium"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Load more indicator */}
+                  {hasMore && (
+                    <div ref={loadMoreRef} className="py-4 text-center">
+                      {isLoading ? (
+                        <div className="flex items-center justify-center gap-2">
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent"></div>
+                          <span className="text-sm text-gray-600">
+                            Loading more...
+                          </span>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => fetchExpenses(false)}
+                          className="text-sm text-blue-600 hover:text-blue-800"
+                        >
+                          Load More
+                        </button>
+                      )}
                     </div>
                   )}
-                </div>
+
+                  {!hasMore && expenses.length > 0 && (
+                    <div className="py-4 text-center text-sm text-gray-500">
+                      No more expenses to load
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
         </div>
 
-        {/* Expense Summary Card */}
-        <div className="mt-6 rounded-lg bg-white p-6 shadow">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">Summary</h2>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between border-b border-gray-200 pb-3">
-              <span className="text-sm font-medium text-gray-600">
-                Total Spent
-              </span>
-              <span className="text-xl font-bold text-gray-900">
-                {formatCurrency(totalSpent)}
-              </span>
-            </div>
-            <div className="text-xs text-gray-500">
-              {expenses.length} expense{expenses.length !== 1 ? 's' : ''}
-            </div>
-
-            {/* Category Breakdown */}
-            {Object.keys(expenseByCategory).length > 0 && (
-              <div className="mt-4 space-y-2 border-t border-gray-200 pt-4">
-                <h3 className="text-sm font-semibold text-gray-700">
-                  By Category
-                </h3>
-                {Object.entries(expenseByCategory)
-                  .sort(([, a], [, b]) => b - a) // Sort by amount descending
-                  .map(([category, amount]) => (
-                    <div
-                      key={category}
-                      className="flex items-center justify-between text-sm"
-                    >
-                      <span className="text-gray-600">{category}</span>
-                      <span className="font-medium text-gray-900">
-                        {formatCurrency(amount)}
-                      </span>
-                    </div>
-                  ))}
-              </div>
-            )}
-          </div>
-        </div>
         {/* Edit Expense Modal */}
         {editingExpense && (
           <EditExpenseModal

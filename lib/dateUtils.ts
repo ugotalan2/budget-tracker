@@ -51,3 +51,36 @@ export function getNextMonth(currentMonth: string): string {
   const nextYear = month === 12 ? year + 1 : year;
   return `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
 }
+
+// Get month boundaries in YYYY-MM-DD format (local timezone)
+export function getMonthBoundaries(year?: number, month?: number) {
+  const now = new Date();
+  const targetYear = year ?? now.getFullYear();
+  const targetMonth = month ?? now.getMonth();
+
+  // First day of month
+  const start = new Date(targetYear, targetMonth, 1);
+  const startStr = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-01`;
+
+  // Last day of month
+  const end = new Date(targetYear, targetMonth + 1, 0);
+  const endStr = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`;
+
+  return { start: startStr, end: endStr };
+}
+
+// Alternative: From YYYY-MM string
+export function getMonthBoundariesFromString(monthStr: string) {
+  const [year, month] = monthStr.split('-').map(Number);
+  return getMonthBoundaries(year, month - 1); // JS months are 0-indexed
+}
+
+// Format YYYY-MM to "Month Year"
+export function formatMonthYear(monthStr: string): string {
+  const [year, month] = monthStr.split('-');
+  const date = new Date(parseInt(year), parseInt(month) - 1, 15); // Use 15th to avoid timezone issues
+  return date.toLocaleDateString('en-US', {
+    month: 'long',
+    year: 'numeric',
+  });
+}
