@@ -38,7 +38,9 @@ export default function BudgetComparisonChart({
             tickFormatter={(value) => `$${value}`}
           />
           <Tooltip
-            formatter={(value: number) => formatCurrency(value)}
+            formatter={(value: number | undefined) =>
+              value !== undefined ? formatCurrency(value) : '$0'
+            }
             contentStyle={{
               backgroundColor: 'white',
               border: '1px solid #e5e7eb',

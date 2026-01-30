@@ -38,7 +38,9 @@ export default function CategoryChart({ data }: CategoryChartProps) {
               cx="50%"
               cy="50%"
               labelLine={false}
-              label={({ category }) => `${category}`}
+              label={(entry: { category?: string; name?: string }) =>
+                entry.category || entry.name || ''
+              }
               outerRadius={80}
               fill="#8884d8"
               dataKey="amount"
@@ -51,7 +53,9 @@ export default function CategoryChart({ data }: CategoryChartProps) {
               ))}
             </Pie>
             <Tooltip
-              formatter={(value: number) => [formatCurrency(value), 'Amount']}
+              formatter={(value: number | undefined) =>
+                value !== undefined ? formatCurrency(value) : '$0'
+              }
               labelFormatter={(label) => label}
               content={({ active, payload }) => {
                 if (active && payload && payload.length) {

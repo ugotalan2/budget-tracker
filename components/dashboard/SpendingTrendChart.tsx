@@ -42,7 +42,9 @@ export default function SpendingTrendChart({ data }: SpendingTrendChartProps) {
             tickFormatter={(value) => `$${value}`}
           />
           <Tooltip
-            formatter={(value: number) => formatCurrency(value)}
+            formatter={(value: number | undefined) =>
+              value !== undefined ? formatCurrency(value) : '$0'
+            }
             labelFormatter={(label) => {
               const date = new Date(label);
               return date.toLocaleDateString('en-US', {

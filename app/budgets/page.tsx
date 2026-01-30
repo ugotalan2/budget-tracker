@@ -27,7 +27,6 @@ export default function BudgetsPage() {
   const [formMonth, setFormMonth] = useState(selectedMonth);
   const supabase = createClient();
   const formRef = useRef<HTMLDivElement>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Fetch budgets for selected month
   const fetchBudgets = async (showLoader = true) => {
@@ -238,19 +237,15 @@ export default function BudgetsPage() {
       setEditingBudget(null);
     }
 
-    setDeletingId(id);
-
     const { error } = await supabase.from('budgets').delete().eq('id', id);
 
     if (error) {
       alert('Failed to delete budget');
-      setDeletingId(null);
     } else {
       // Remove from local state instead of refetching
       setBudgets(budgets.filter((b) => b.id !== id));
       // Update form categories
       await fetchExistingCategoriesForMonth(formMonth);
-      setDeletingId(null);
     }
   };
 
@@ -527,9 +522,6 @@ export default function BudgetsPage() {
                           isOverBudget={status.isOverBudget}
                           onEdit={() => handleEditClick(budget)}
                           onDelete={() => handleDelete(budget.id)}
-                          className={
-                            deletingId === budget.id ? 'opacity-50 ' : ''
-                          }
                         />
                       </div>
                     );
