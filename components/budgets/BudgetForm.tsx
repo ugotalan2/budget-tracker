@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { CATEGORIES, type Category } from '@/lib/types';
 import { generateMonthOptions } from '@/lib/dateUtils';
 
@@ -48,6 +48,7 @@ export default function BudgetForm({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const amountInputRef = useRef<HTMLInputElement>(null);
 
   // update category when available categories change
   useEffect(() => {
@@ -67,6 +68,12 @@ export default function BudgetForm({
         initialData.limit_amount ? initialData.limit_amount.toString() : ''
       );
       setMonth(initialData.month);
+
+      // Focus amount input after a small delay
+      setTimeout(() => {
+        amountInputRef.current?.focus();
+        amountInputRef.current?.select(); // Also select the text for easy replacement
+      }, 100);
     }
   }, [initialData, isEditing]);
 
@@ -185,6 +192,7 @@ export default function BudgetForm({
             min="0"
             value={limitAmount}
             onChange={(e) => setLimitAmount(e.target.value)}
+            onFocus={(e) => e.target.select()}
             className="block w-full rounded-md border border-gray-300 py-2 pl-7 pr-3 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             placeholder="500.00"
             required

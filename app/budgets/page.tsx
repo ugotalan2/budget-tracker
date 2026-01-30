@@ -233,6 +233,11 @@ export default function BudgetsPage() {
       return;
     }
 
+    // If we're editing this budget, cancel edit mode first
+    if (editingBudget?.id === id) {
+      setEditingBudget(null);
+    }
+
     setDeletingId(id);
 
     const { error } = await supabase.from('budgets').delete().eq('id', id);

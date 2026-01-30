@@ -18,12 +18,14 @@ export default function Sidebar() {
     <div className="flex h-screen w-64 flex-col border-r border-gray-200 bg-white">
       {/* Logo */}
       <div className="flex h-16 items-center border-b border-gray-200 px-6">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600">
-          <span className="text-lg font-bold text-white">B</span>
-        </div>
-        <span className="ml-3 text-lg font-bold text-gray-900">
-          Budget Tracker
-        </span>
+        <Link href="/" className="flex items-center">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600">
+            <span className="text-lg font-bold text-white">B</span>
+          </div>
+          <span className="ml-3 text-lg font-bold text-gray-900">
+            Budget Tracker
+          </span>
+        </Link>
       </div>
 
       {/* Navigation */}
