@@ -34,7 +34,7 @@ export default function ExpensesPage() {
   const canGoForward = summaryMonth < currentMonth;
   // pagination state
   const [hasMore, setHasMore] = useState(true);
-  const [offset, setOffset] = useState(0);
+  const offsetRef = useRef(0);
   const LIMIT = 20; // Load 20 expenses at a time
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -48,7 +48,7 @@ export default function ExpensesPage() {
     async (reset = false) => {
       setIsLoading(true);
 
-      const currentOffset = reset ? 0 : offset;
+      const currentOffset = reset ? 0 : offsetRef.current;
 
       let query = supabase.from('expenses').select('*');
 
@@ -77,10 +77,10 @@ export default function ExpensesPage() {
       if (!error && data) {
         if (reset) {
           setExpenses(data || []);
-          setOffset(LIMIT);
+          offsetRef.current = LIMIT;
         } else {
           setExpenses((prev) => [...prev, ...(data || [])]);
-          setOffset(currentOffset + LIMIT);
+          offsetRef.current += LIMIT;
         }
 
         // check if there are more expenses
@@ -89,7 +89,7 @@ export default function ExpensesPage() {
 
       setIsLoading(false);
     },
-    [offset, categoryFilter, sortBy, sortOrder, debouncedSearch, supabase]
+    [categoryFilter, sortBy, sortOrder, debouncedSearch, supabase]
   );
 
   // Fetch summary stats for current month
@@ -132,7 +132,7 @@ export default function ExpensesPage() {
 
   // reset when filters/sort/search change
   useEffect(() => {
-    setOffset(0);
+    offsetRef.current = 0;
     fetchExpenses(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoryFilter, sortBy, sortOrder, searchQuery, fetchExpenses]);
@@ -153,7 +153,7 @@ export default function ExpensesPage() {
     observer.observe(loadMoreRef.current);
 
     return () => observer.disconnect();
-  }, [isLoading, hasMore, offset, fetchExpenses]);
+  }, [isLoading, hasMore, fetchExpenses]);
 
   // Reset when month changes
   useEffect(() => {
@@ -354,193 +354,202 @@ export default function ExpensesPage() {
           {/* Expense List */}
           <div className="lg:col-span-2">
             <div className="rounded-lg bg-white p-6 shadow">
-              {/* Search and Filters Header */}
-              <div className="p-6 border-b border-gray-100">
-                <div className="mb-4 space-y-3">
-                  {/* Search Bar */}
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search expenses..."
-                      className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              {/* Search and Filters */}
+              <div className="mb-6 space-y-4">
+                {/* Search Bar */}
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search expenses..."
+                    className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                  <svg
+                    className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
                     />
-                    <svg
-                      className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                  </svg>
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                      />
-                    </svg>
-                    {searchQuery && (
-                      <button
-                        onClick={() => setSearchQuery('')}
-                        className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                      <svg
+                        className="h-5 w-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
                       >
-                        <svg
-                          className="h-5 w-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M6 18L18 6M6 6l12 12"
-                          />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                  )}
+                </div>
 
-                  {/* Filters Row */}
-                  <div className="mb-4 flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-gray-900">
-                      Recent Expenses
-                    </h2>
-                    <div className="flex gap-2">
-                      <select
-                        value={sortBy}
-                        onChange={(e) =>
-                          setSortBy(e.target.value as 'date' | 'amount')
-                        }
-                        className="rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      >
-                        <option value="date">Sort by Date</option>
-                        <option value="amount">Sort by Amount</option>
-                      </select>
-                      <button
-                        onClick={() =>
-                          setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
-                        }
-                        className="rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50"
-                        title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
-                      >
-                        {sortOrder === 'asc' ? '↑' : '↓'}
-                      </button>
-                      <select
-                        value={categoryFilter}
-                        onChange={(e) => setCategoryFilter(e.target.value)}
-                        className="rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      >
-                        <option value="All">All Categories</option>
-                        {CATEGORIES.map((cat) => (
-                          <option key={cat} value={cat}>
-                            {cat}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                {/* Filters Row */}
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    Recent Expenses
+                  </h2>
+                  <div className="flex gap-2">
+                    <select
+                      value={sortBy}
+                      onChange={(e) =>
+                        setSortBy(e.target.value as 'date' | 'amount')
+                      }
+                      className="rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                      <option value="date">Sort by Date</option>
+                      <option value="amount">Sort by Amount</option>
+                    </select>
+                    <button
+                      onClick={() =>
+                        setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
+                      }
+                      className="rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50"
+                      title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+                    >
+                      {sortOrder === 'asc' ? '↑' : '↓'}
+                    </button>
+                    <select
+                      value={categoryFilter}
+                      onChange={(e) => setCategoryFilter(e.target.value)}
+                      className="rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                      <option value="All">All Categories</option>
+                      {CATEGORIES.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               </div>
-              {/* Expense List */}
-              <div className="divide-y divide-gray-100">
-                {expenses.length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-gray-500">
-                      {categoryFilter === 'All'
-                        ? 'No expenses yet. Add your first expense to get started!'
-                        : `No ${categoryFilter} expenses found.`}
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    {/* Show result count if searching */}
-                    {searchQuery && (
-                      <div className="mb-3 text-sm text-gray-600">
-                        Found {expenses.length} result
-                        {expenses.length !== 1 ? 's' : ''} for &quot;
-                        {searchQuery}
-                        &quot;
-                      </div>
-                    )}
 
-                    <div className="space-y-4">
-                      {expenses.map((expense) => (
-                        <div
-                          key={expense.id}
-                          className="flex items-center justify-between border-b border-gray-200 pb-4 last:border-0"
+              {/* Expense List Content */}
+              {expenses.length === 0 ? (
+                <div className="py-12 text-center">
+                  <p className="text-gray-500">
+                    {searchQuery ? (
+                      <>
+                        No expenses found for &quot;{searchQuery}&quot;
+                        <button
+                          onClick={() => setSearchQuery('')}
+                          className="ml-2 text-blue-600 hover:text-blue-800"
                         >
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3">
-                              <span className="rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-800">
-                                {expense.category}
-                              </span>
-                              <span className="text-lg font-semibold text-gray-900">
-                                {formatCurrency(expense.amount)}
-                              </span>
-                            </div>
-                            {expense.description && (
-                              <p className="mt-1 text-sm text-gray-600">
-                                {expense.description}
-                              </p>
-                            )}
-                            <p className="mt-1 text-sm text-gray-500">
-                              {new Date(expense.date).toLocaleDateString(
-                                'en-US',
-                                {
-                                  year: 'numeric',
-                                  month: 'long',
-                                  day: 'numeric',
-                                }
-                              )}
-                            </p>
+                          Clear search
+                        </button>
+                      </>
+                    ) : categoryFilter === 'All' ? (
+                      'No expenses yet. Add your first expense to get started!'
+                    ) : (
+                      `No ${categoryFilter} expenses found.`
+                    )}
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* Show result count if searching */}
+                  {searchQuery && (
+                    <div className="mb-4 text-sm text-gray-600">
+                      Found {expenses.length} result
+                      {expenses.length !== 1 ? 's' : ''} for &quot;{searchQuery}
+                      &quot;
+                    </div>
+                  )}
+
+                  <div className="space-y-4">
+                    {expenses.map((expense) => (
+                      <div
+                        key={expense.id}
+                        className="flex items-center justify-between border-b border-gray-200 pb-4 last:border-0"
+                      >
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3">
+                            <span className="rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-800">
+                              {expense.category}
+                            </span>
+                            <span className="text-lg font-semibold text-gray-900">
+                              {formatCurrency(expense.amount)}
+                            </span>
                           </div>
-                          {/* Action Buttons: Might need to rap this in a div ml-4 flex gap-2 */}
+                          {expense.description && (
+                            <p className="mt-1 text-sm text-gray-600">
+                              {expense.description}
+                            </p>
+                          )}
+                          <p className="mt-1 text-sm text-gray-500">
+                            {new Date(expense.date).toLocaleDateString(
+                              'en-US',
+                              {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                              }
+                            )}
+                          </p>
+                        </div>
+                        <div className="ml-4 flex gap-2">
                           <button
                             onClick={() => setEditingExpense(expense)}
-                            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                            className="text-sm font-medium text-blue-600 hover:text-blue-800"
                           >
                             Edit
                           </button>
                           <button
                             onClick={() => handleDelete(expense.id)}
-                            className="ml-4 text-red-600 hover:text-red-800 text-sm font-medium"
+                            className="text-sm font-medium text-red-600 hover:text-red-800"
                           >
                             Delete
                           </button>
                         </div>
-                      ))}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Load more indicator */}
+                  {hasMore && (
+                    <div ref={loadMoreRef} className="py-4 text-center">
+                      {isLoading ? (
+                        <div className="flex items-center justify-center gap-2">
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent"></div>
+                          <span className="text-sm text-gray-600">
+                            Loading more...
+                          </span>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => fetchExpenses(false)}
+                          className="text-sm text-blue-600 hover:text-blue-800"
+                        >
+                          Load More
+                        </button>
+                      )}
                     </div>
+                  )}
 
-                    {/* Load more indicator */}
-                    {hasMore && (
-                      <div ref={loadMoreRef} className="py-4 text-center">
-                        {isLoading ? (
-                          <div className="flex items-center justify-center gap-2">
-                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent"></div>
-                            <span className="text-sm text-gray-600">
-                              Loading more...
-                            </span>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => fetchExpenses(false)}
-                            className="text-sm text-blue-600 hover:text-blue-800"
-                          >
-                            Load More
-                          </button>
-                        )}
-                      </div>
-                    )}
-
-                    {!hasMore && expenses.length > 0 && (
-                      <div className="py-4 text-center text-sm text-gray-500">
-                        No more expenses to load
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
+                  {!hasMore && expenses.length > 0 && (
+                    <div className="py-4 text-center text-sm text-gray-500">
+                      No more expenses
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </div>
