@@ -7,6 +7,9 @@ import { Category, type Budget, type Expense } from '@/lib/types';
 import BudgetForm from '@/components/budgets/BudgetForm';
 import BudgetProgress from '@/components/budgets/BudgetProgress';
 import { formatCurrency } from '@/lib/calculations';
+import Select from '@/components/ui/Select';
+import IconButton from '@/components/ui/IconButton';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import {
   generateMonthOptions,
   getPreviousMonth,
@@ -18,6 +21,7 @@ export default function BudgetsPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isNavigating, setIsNavigating] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(
     new Date().toISOString().slice(0, 7)
   );
@@ -227,27 +231,29 @@ export default function BudgetsPage() {
     await fetchBudgets();
   };
 
-  // Delete budget
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this budget?')) {
-      return;
-    }
+    setConfirmDelete(id);
+  };
 
-    // If we're editing this budget, cancel edit mode first
-    if (editingBudget?.id === id) {
-      setEditingBudget(null);
-    }
+  const confirmDeleteBudget = async () => {
+    if (!confirmDelete) return;
 
-    const { error } = await supabase.from('budgets').delete().eq('id', id);
+    const { error } = await supabase
+      .from('expenses')
+      .delete()
+      .eq('id', confirmDelete);
 
     if (error) {
-      alert('Failed to delete budget');
+      alert('Failed to delete budget.');
     } else {
       // Remove from local state instead of refetching
-      setBudgets(budgets.filter((b) => b.id !== id));
-      // Update form categories
+      setBudgets((prev) =>
+        prev.filter((budget) => budget.id !== confirmDelete)
+      );
       await fetchExistingCategoriesForMonth(formMonth);
     }
+
+    setConfirmDelete(null);
   };
 
   // Calculate overall stats
@@ -330,7 +336,7 @@ export default function BudgetsPage() {
               </h2>
 
               {editingBudget && (
-                <div className="mb-4 rounded-md bg-blue-50 p-3 text-sm text-blue-800">
+                <div className="mb-4 rounded-md bg-blue-50 p-3 text-sm text-blue-800 dark:bg-blue-900/20 dark:text-blue-300">
                   Editing budget for <strong>{editingBudget.category}</strong>
                   <button
                     onClick={() => setEditingBudget(null)}
@@ -373,42 +379,35 @@ export default function BudgetsPage() {
                   Monthly Budgets
                 </h2>
                 <div className="flex items-center gap-2">
-                  <button
+                  <IconButton
+                    icon={<ChevronLeft className="h-4 w-4" />}
                     onClick={() => {
                       setIsNavigating(true);
                       setSelectedMonth(getPreviousMonth(selectedMonth));
                     }}
                     disabled={isNavigating}
-                    className="rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-
-                  <select
-                    value={selectedMonth}
-                    onChange={(e) => {
-                      setIsNavigating(true);
-                      setSelectedMonth(e.target.value);
-                    }}
-                    disabled={isNavigating}
-                    className="rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500  dark:border-gray-600"
-                  >
-                    {generateMonthOptions(12).map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-
-                  <button
+                  />
+                  <div className="w-44">
+                    <Select
+                      value={selectedMonth}
+                      onChange={(e) => {
+                        setIsNavigating(true);
+                        setSelectedMonth(e.target.value);
+                      }}
+                      disabled={isNavigating}
+                      options={generateMonthOptions(12).map((opt) => ({
+                        value: opt.value,
+                        label: opt.label,
+                      }))}
+                    />
+                  </div>
+                  <IconButton
+                    icon={<ChevronRight className="h-4 w-4" />}
                     onClick={() => {
                       setIsNavigating(true);
                       setSelectedMonth(getNextMonth(selectedMonth));
                     }}
-                    className="rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
+                  />
                 </div>
               </div>
 
@@ -547,6 +546,15 @@ export default function BudgetsPage() {
           </div>
         </div>
       </div>
+      <ConfirmDialog
+        isOpen={!!confirmDelete}
+        title="Delete Budget"
+        message="Are you sure you want to delete this budget? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={confirmDeleteBudget}
+        onCancel={() => setConfirmDelete(null)}
+      />
     </div>
   );
 }

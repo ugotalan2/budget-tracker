@@ -17,7 +17,9 @@ import EditExpenseModal from '@/components/expenses/EditExpenseModal';
 import ExpenseActionsMenu from '@/components/expenses/ExpenseActionsMenu';
 import ExpenseItemMenu from '@/components/expenses/ExpenseItemMenu';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
-
+import Select from '@/components/ui/Select';
+import IconButton from '@/components/ui/IconButton';
+import SearchInput from '@/components/ui/SearchInput';
 import {
   generateMonthOptions,
   getPreviousMonth,
@@ -390,34 +392,30 @@ export default function ExpensesPage() {
 
               {/* Navigation Controls */}
               <div className="mb-6 flex items-center justify-center gap-2">
-                <button
+                <IconButton
+                  icon={<ChevronLeft className="h-4 w-4" />}
                   onClick={() =>
                     setSummaryMonth(getPreviousMonth(summaryMonth))
                   }
-                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition-all hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600 dark:border-gray-700 dark:text-gray-400 dark:hover:border-blue-600 dark:hover:bg-blue-900/20 dark:hover:text-blue-400"
                   title="Previous month"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <select
-                  value={summaryMonth}
-                  onChange={(e) => setSummaryMonth(e.target.value)}
-                  className="h-9 w-40 rounded-lg border border-gray-200 bg-white px-3 text-center text-sm font-medium text-gray-700 shadow-sm transition-all hover:border-gray-300 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-gray-600"
-                >
-                  {generateMonthOptions(12, 1).map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-                <button
+                />
+                <div className="w-44">
+                  <Select
+                    value={summaryMonth}
+                    onChange={(e) => setSummaryMonth(e.target.value)}
+                    options={generateMonthOptions(12, 1).map((opt) => ({
+                      value: opt.value,
+                      label: opt.label,
+                    }))}
+                    className="w-40 text-center"
+                  />
+                </div>
+                <IconButton
+                  icon={<ChevronRight className="h-4 w-4" />}
                   onClick={() => setSummaryMonth(getNextMonth(summaryMonth))}
                   disabled={!canGoForward}
-                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition-all hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:border-gray-200 disabled:hover:bg-white disabled:hover:text-gray-500 dark:border-gray-700 dark:text-gray-400 dark:hover:border-blue-600 dark:hover:bg-blue-900/20 dark:hover:text-blue-400 dark:disabled:hover:border-gray-700 dark:disabled:hover:bg-gray-800"
                   title="Next month"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
+                />
               </div>
 
               {/* Total spent card */}
@@ -487,48 +485,11 @@ export default function ExpensesPage() {
               {/* Search and Filters */}
               <div className="mb-6 space-y-4">
                 {/* Search Bar */}
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search expenses..."
-                    className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
-                  />
-                  <svg
-                    className="absolute left-3 top-2.5 h-5 w-5 text-gray-400 dark:text-gray-500"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                    />
-                  </svg>
-                  {searchQuery && (
-                    <button
-                      onClick={() => setSearchQuery('')}
-                      className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
-                    >
-                      <svg
-                        className="h-5 w-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                    </button>
-                  )}
-                </div>
+                <SearchInput
+                  value={searchQuery}
+                  onChange={setSearchQuery}
+                  placeholder="Search expenses..."
+                />
 
                 {/* Filters Row */}
                 <div className="flex items-center justify-between">
@@ -536,42 +497,45 @@ export default function ExpensesPage() {
                     Recent Expenses
                   </h2>
                   <div className="flex items-center gap-2">
-                    <select
-                      value={sortBy}
-                      onChange={(e) =>
-                        setSortBy(e.target.value as 'date' | 'amount')
+                    <div className="w-44">
+                      <Select
+                        value={sortBy}
+                        onChange={(e) =>
+                          setSortBy(e.target.value as 'date' | 'amount')
+                        }
+                        options={[
+                          { value: 'date', label: 'Sort by Date' },
+                          { value: 'amount', label: 'Sort by Amount' },
+                        ]}
+                      />
+                    </div>
+                    <IconButton
+                      icon={
+                        sortOrder === 'asc' ? (
+                          <ChevronUp className="h-4 w-4" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4" />
+                        )
                       }
-                      className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
-                    >
-                      <option value="date">Sort by Date</option>
-                      <option value="amount">Sort by Amount</option>
-                    </select>
-                    <button
                       onClick={() =>
                         setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
                       }
-                      className="rounded-md p-1.5 border border-gray-300 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors dark:text-gray-500 dark:hover:bg-gray-900/30 dark:hover:text-gray-400"
                       title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
-                    >
-                      {sortOrder === 'asc' ? (
-                        <ChevronUp className="h-4 w-4" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4" />
-                      )}
-                    </button>
-                    <select
-                      value={categoryFilter}
-                      onChange={(e) => setCategoryFilter(e.target.value)}
-                      className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
-                    >
-                      <option value="All">All Categories</option>
-                      {CATEGORIES.map((cat) => (
-                        <option key={cat} value={cat}>
-                          {cat}
-                        </option>
-                      ))}
-                    </select>
-                    {/* Three-dot menu */}
+                    />
+                    <div className="w-44">
+                      <Select
+                        value={categoryFilter}
+                        onChange={(e) => setCategoryFilter(e.target.value)}
+                        options={[
+                          { value: 'All', label: 'All Categories' },
+                          ...CATEGORIES.map((cat) => ({
+                            value: cat,
+                            label: cat,
+                          })),
+                        ]}
+                      />
+                    </div>
+                    {/* Three-dot menu stays as-is */}
                     <ExpenseActionsMenu
                       onExportVisible={handleExportVisible}
                       onExportAll={handleExportAll}

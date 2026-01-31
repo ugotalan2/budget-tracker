@@ -2,6 +2,9 @@
 
 import { useState } from 'react';
 import { CATEGORIES, Category } from '@/lib/types';
+import Input from '@/components/ui/Input';
+import Select from '@/components/ui/Select';
+import Button from '@/components/ui/Button';
 
 type ExpenseFormProps = {
   onSubmit: (expense: {
@@ -37,11 +40,15 @@ export default function ExpenseForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  const categoryOptions = CATEGORIES.map((cat) => ({
+    value: cat,
+    label: cat,
+  }));
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    //Validation
     if (!amount || parseFloat(amount) <= 0) {
       setError('Please enter a valid amount.');
       return;
@@ -62,7 +69,6 @@ export default function ExpenseForm({
         date,
       });
 
-      // Reset form if not editing
       if (!isEditing) {
         setAmount('');
         setCategory('Food');
@@ -84,98 +90,54 @@ export default function ExpenseForm({
         </div>
       )}
 
-      <div>
-        <label
-          htmlFor="amount"
-          className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-        >
-          Amount
-        </label>
-        <div className="relative mt-1">
-          <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500 dark:text-gray-400">
-            $
-          </span>
-          <input
-            type="number"
-            id="amount"
-            step="0.01"
-            min="0"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            className="block w-full rounded-md border border-gray-300 bg-white py-2 pl-7 pr-3 text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
-            placeholder="0.00"
-            required
-          />
-        </div>
-      </div>
+      <Input
+        label="Amount"
+        id="amount"
+        type="number"
+        step="0.01"
+        min="0"
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+        onFocus={(e) => e.target.select()}
+        placeholder="0.00"
+        prefix="$"
+        required
+      />
 
-      <div>
-        <label
-          htmlFor="category"
-          className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-        >
-          Category
-        </label>
-        <select
-          id="category"
-          value={category}
-          onChange={(e) => setCategory(e.target.value as Category)}
-          className="mt-1 block w-full rounded-md border border-gray-300 bg-white py-2 px-3 text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
-          required
-        >
-          {CATEGORIES.map((cat) => (
-            <option key={cat} value={cat}>
-              {cat}
-            </option>
-          ))}
-        </select>
-      </div>
+      <Select
+        label="Category"
+        id="category"
+        value={category}
+        onChange={(e) => setCategory(e.target.value as Category)}
+        options={categoryOptions}
+        required
+      />
 
-      <div>
-        <label
-          htmlFor="date"
-          className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-        >
-          Date
-        </label>
-        <input
-          type="date"
-          id="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          className="mt-1 block w-full rounded-md border border-gray-300 bg-white py-2 px-3 text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
-          required
-        />
-      </div>
+      <Input
+        label="Date"
+        id="date"
+        type="date"
+        value={date}
+        onChange={(e) => setDate(e.target.value)}
+        required
+      />
 
-      <div>
-        <label
-          htmlFor="description"
-          className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-        >
-          Description (optional)
-        </label>
-        <input
-          type="text"
-          id="description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          className="mt-1 block w-full rounded-md border border-gray-300 bg-white py-2 px-3 text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
-          placeholder="e.g., Groceries at Costco"
-        />
-      </div>
+      <Input
+        label="Description (optional)"
+        id="description"
+        type="text"
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        placeholder="e.g., Groceries at Costco"
+      />
 
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="w-full rounded-md bg-blue-600 py-2 px-4 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
+      <Button type="submit" variant="primary" fullWidth disabled={isSubmitting}>
         {isSubmitting
           ? 'Saving...'
           : isEditing
             ? 'Update Expense'
             : 'Add Expense'}
-      </button>
+      </Button>
     </form>
   );
 }
