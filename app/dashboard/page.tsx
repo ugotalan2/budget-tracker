@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { type Expense, type Budget } from '@/lib/types';
 import { formatCurrency } from '@/lib/calculations';
@@ -137,23 +138,27 @@ export default function DashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
-          <div className="mb-4 inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
-          <p className="text-gray-600">Loading dashboard...</p>
+          <div className="mb-4 inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent dark:border-blue-400"></div>
+          <p className="text-gray-600 dark:text-gray-400">
+            Loading dashboard...
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen bg-gray-50 p-8 dark:bg-gray-900">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-            <p className="mt-2 text-gray-600">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+              Dashboard
+            </h1>
+            <p className="mt-2 text-gray-600 dark:text-gray-400">
               Your spending overview for{' '}
               {new Date(selectedMonth + '-01').toLocaleDateString('en-US', {
                 month: 'long',
@@ -166,14 +171,14 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setSelectedMonth(getPreviousMonth(selectedMonth))}
-              className="rounded-md border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50"
+              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700"
             >
-              ← Prev
+              <ChevronLeft className="h-4 w-4" />
             </button>
             <select
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:focus:border-blue-400 dark:focus:ring-blue-400"
             >
               {generateMonthOptions(12).map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -183,9 +188,9 @@ export default function DashboardPage() {
             </select>
             <button
               onClick={() => setSelectedMonth(getNextMonth(selectedMonth))}
-              className="rounded-md border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50"
+              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700"
             >
-              Next →
+              <ChevronRight className="h-4 w-4" />
             </button>
           </div>
         </div>
@@ -193,11 +198,13 @@ export default function DashboardPage() {
         {/* Stats Cards */}
         <div className="mb-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {/* Total Spent */}
-          <div className="rounded-lg bg-white p-6 shadow">
+          <div className="rounded-lg bg-white p-6 shadow dark:bg-gray-800">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Spent</p>
-                <p className="mt-2 text-3xl font-bold text-gray-900">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  Total Spent
+                </p>
+                <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">
                   {formatCurrency(totalSpent)}
                 </p>
               </div>
@@ -217,25 +224,25 @@ export default function DashboardPage() {
                 </svg>
               </div>
             </div>
-            <p className="mt-2 text-sm text-gray-500">
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
               {transactionCount} transactions
             </p>
           </div>
 
           {/* Total Budget */}
-          <div className="rounded-lg bg-white p-6 shadow">
+          <div className="rounded-lg bg-white p-6 shadow dark:bg-gray-800">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
                   Total Budget
                 </p>
-                <p className="mt-2 text-3xl font-bold text-gray-900">
+                <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">
                   {formatCurrency(totalBudget)}
                 </p>
               </div>
-              <div className="rounded-full bg-blue-100 p-3">
+              <div className="rounded-full bg-blue-100 p-3 dark:bg-blue-900/30">
                 <svg
-                  className="h-6 w-6 text-blue-600"
+                  className="h-6 w-6 text-blue-600 dark:text-blue-300"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -249,16 +256,18 @@ export default function DashboardPage() {
                 </svg>
               </div>
             </div>
-            <p className="mt-2 text-sm text-gray-500">
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
               {budgets.length} categories
             </p>
           </div>
 
           {/* Remaining Budget */}
-          <div className="rounded-lg bg-white p-6 shadow">
+          <div className="rounded-lg bg-white p-6 shadow dark:bg-gray-800">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Remaining</p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  Remaining
+                </p>
                 <p
                   className={`mt-2 text-3xl font-bold ${
                     remainingBudget < 0 ? 'text-red-600' : 'text-green-600'
@@ -293,19 +302,19 @@ export default function DashboardPage() {
                 </svg>
               </div>
             </div>
-            <p className="mt-2 text-sm text-gray-500">
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
               {budgetUsedPercentage.toFixed(1)}% of budget
             </p>
           </div>
 
           {/* Average Transaction */}
-          <div className="rounded-lg bg-white p-6 shadow">
+          <div className="rounded-lg bg-white p-6 shadow dark:bg-gray-800">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
                   Avg Transaction
                 </p>
-                <p className="mt-2 text-3xl font-bold text-gray-900">
+                <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">
                   {formatCurrency(avgTransaction)}
                 </p>
               </div>
@@ -325,19 +334,21 @@ export default function DashboardPage() {
                 </svg>
               </div>
             </div>
-            <p className="mt-2 text-sm text-gray-500">Per expense</p>
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+              Per expense
+            </p>
           </div>
         </div>
 
         {/* Month Comparison */}
         {prevMonthExpenses.length > 0 && (
-          <div className="mb-8 rounded-lg border-2 border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50 p-6">
+          <div className="mb-8 rounded-lg border-2 border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50 p-6 dark:border-gray-700 dark:from-blue-900/20 dark:to-purple-900/20">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                   Month-over-Month Change
                 </h3>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
                   Compared to{' '}
                   {new Date(
                     getPreviousMonth(selectedMonth) + '-01'
@@ -387,23 +398,27 @@ export default function DashboardPage() {
                     {Math.abs(monthOverMonthChange).toFixed(1)}%
                   </span>
                 </div>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
                   {formatCurrency(Math.abs(totalSpent - prevMonthTotal))}{' '}
                   {isIncreased ? 'more' : 'less'} than last month
                 </p>
               </div>
             </div>
 
-            <div className="mt-4 grid grid-cols-2 gap-4 border-t border-gray-300 pt-4">
+            <div className="mt-4 grid grid-cols-2 gap-4 border-t border-gray-300 pt-4 dark:border-gray-600">
               <div>
-                <p className="text-sm text-gray-600">Last Month</p>
-                <p className="text-xl font-bold text-gray-900">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Last Month
+                </p>
+                <p className="text-xl font-bold text-gray-900 dark:text-white">
                   {formatCurrency(prevMonthTotal)}
                 </p>
               </div>
               <div>
-                <p className="text-sm text-gray-600">This Month</p>
-                <p className="text-xl font-bold text-gray-900">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  This Month
+                </p>
+                <p className="text-xl font-bold text-gray-900 dark:text-white">
                   {formatCurrency(totalSpent)}
                 </p>
               </div>
@@ -414,16 +429,16 @@ export default function DashboardPage() {
         {/* Charts Grid */}
         <div className="mb-8 grid gap-8 lg:grid-cols-2">
           {/* Category Breakdown */}
-          <div className="rounded-lg bg-white p-6 shadow">
-            <h2 className="mb-4 text-lg font-semibold text-gray-900">
+          <div className="rounded-lg bg-white p-6 shadow dark:bg-gray-800">
+            <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
               Spending by Category
             </h2>
             <CategoryChart data={categoryChartData} />
           </div>
 
           {/* Spending Trend */}
-          <div className="rounded-lg bg-white p-6 shadow">
-            <h2 className="mb-4 text-lg font-semibold text-gray-900">
+          <div className="rounded-lg bg-white p-6 shadow dark:bg-gray-800">
+            <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
               Daily Spending
             </h2>
             <SpendingTrendChart data={trendChartData} />
@@ -431,25 +446,25 @@ export default function DashboardPage() {
         </div>
 
         {/* Budget Comparison */}
-        <div className="mb-8 rounded-lg bg-white p-6 shadow">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">
+        <div className="mb-8 rounded-lg bg-white p-6 shadow dark:bg-gray-800">
+          <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
             Budget vs Actual
           </h2>
           <BudgetComparisonChart data={budgetComparisonData} />
         </div>
 
         {/* Spending Insights */}
-        <div className="mb-8 rounded-lg bg-white p-6 shadow">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">
+        <div className="mb-8 rounded-lg bg-white p-6 shadow dark:bg-gray-800">
+          <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
             Spending Insights
           </h2>
           <div className="space-y-4">
             {/* Highest spending category */}
             {categoryChartData.length > 0 && (
-              <div className="flex items-start gap-3 rounded-lg bg-blue-50 p-4">
-                <div className="rounded-full bg-blue-100 p-2">
+              <div className="flex items-start gap-3 rounded-lg bg-blue-50 p-4 dark:bg-blue-900/20">
+                <div className="rounded-full bg-blue-100 p-2 dark:bg-blue-900/30">
                   <svg
-                    className="h-5 w-5 text-blue-600"
+                    className="h-5 w-5 text-blue-600 dark:text-blue-400"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -463,8 +478,10 @@ export default function DashboardPage() {
                   </svg>
                 </div>
                 <div className="flex-1">
-                  <p className="font-medium text-gray-900">Highest Spending</p>
-                  <p className="text-sm text-gray-600">
+                  <p className="font-medium text-gray-900 dark:text-white">
+                    Highest Spending
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
                     <strong>{categoryChartData[0].category}</strong> is your top
                     expense at{' '}
                     <strong>
@@ -477,10 +494,10 @@ export default function DashboardPage() {
 
             {/* Budget status */}
             {budgets.length > 0 && (
-              <div className="flex items-start gap-3 rounded-lg bg-yellow-50 p-4">
-                <div className="rounded-full bg-yellow-100 p-2">
+              <div className="flex items-start gap-3 rounded-lg bg-yellow-50 p-4 dark:bg-yellow-900/20">
+                <div className="rounded-full bg-yellow-100 p-2 dark:bg-yellow-900/30">
                   <svg
-                    className="h-5 w-5 text-yellow-600"
+                    className="h-5 w-5 text-yellow-600 dark:text-yellow-400"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -494,8 +511,10 @@ export default function DashboardPage() {
                   </svg>
                 </div>
                 <div className="flex-1">
-                  <p className="font-medium text-gray-900">Budget Status</p>
-                  <p className="text-sm text-gray-600">
+                  <p className="font-medium text-gray-900 dark:text-white">
+                    Budget Status
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
                     {budgetUsedPercentage > 100 ? (
                       <>
                         You&apos;ve exceeded your budget by{' '}
@@ -527,10 +546,10 @@ export default function DashboardPage() {
 
             {/* Transaction insights */}
             {expenses.length > 0 && (
-              <div className="flex items-start gap-3 rounded-lg bg-purple-50 p-4">
-                <div className="rounded-full bg-purple-100 p-2">
+              <div className="flex items-start gap-3 rounded-lg bg-purple-50 p-4 dark:bg-purple-900/20">
+                <div className="rounded-full bg-purple-100 p-2 dark:bg-purple-900/30">
                   <svg
-                    className="h-5 w-5 text-purple-600"
+                    className="h-5 w-5 text-purple-600 dark:text-purple-400"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -544,10 +563,10 @@ export default function DashboardPage() {
                   </svg>
                 </div>
                 <div className="flex-1">
-                  <p className="font-medium text-gray-900">
+                  <p className="font-medium text-gray-900 dark:text-white">
                     Transaction Average
                   </p>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
                     Your average transaction is{' '}
                     <strong>{formatCurrency(avgTransaction)}</strong> across{' '}
                     <strong>{transactionCount} purchases</strong>
@@ -558,8 +577,8 @@ export default function DashboardPage() {
 
             {/* Empty state */}
             {expenses.length === 0 && (
-              <div className="rounded-lg border-2 border-dashed border-gray-300 p-8 text-center">
-                <p className="text-gray-500">
+              <div className="rounded-lg border-2 border-dashed border-gray-300 p-8 text-center dark:border-gray-600">
+                <p className="text-gray-500 dark:text-gray-400">
                   No expenses yet. Start tracking to see insights!
                 </p>
               </div>
@@ -568,34 +587,38 @@ export default function DashboardPage() {
         </div>
 
         {/* Recent Transactions */}
-        <div className="rounded-lg bg-white p-6 shadow">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">
+        <div className="rounded-lg bg-white p-6 shadow dark:bg-gray-800">
+          <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
             Recent Transactions
           </h2>
           <div className="space-y-3">
             {expenses.slice(0, 5).map((expense) => (
               <div
                 key={expense.id}
-                className="flex items-center justify-between border-b border-gray-100 pb-3 last:border-0"
+                className="flex items-center justify-between border-b border-gray-100 pb-3 last:border-0 dark:border-gray-800"
               >
                 <div>
-                  <p className="font-medium text-gray-900">
+                  <p className="font-medium text-gray-900 dark:text-white">
                     {expense.description || expense.category}
                   </p>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
                     {new Date(expense.date).toLocaleDateString()}
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="font-semibold text-gray-900">
+                  <p className="font-semibold text-gray-900 dark:text-white">
                     {formatCurrency(expense.amount)}
                   </p>
-                  <p className="text-sm text-gray-500">{expense.category}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {expense.category}
+                  </p>
                 </div>
               </div>
             ))}
             {expenses.length === 0 && (
-              <p className="text-center text-gray-500">No transactions yet</p>
+              <p className="text-center text-gray-500 dark:text-gray-400">
+                No transactions yet
+              </p>
             )}
           </div>
         </div>

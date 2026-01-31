@@ -109,7 +109,7 @@ export default function BudgetForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
-        <div className="rounded-md bg-red-50 p-3 text-sm text-red-800">
+        <div className="rounded-md bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/20 dark:text-red-400">
           {error}
         </div>
       )}
@@ -117,7 +117,7 @@ export default function BudgetForm({
       <div>
         <label
           htmlFor="category"
-          className="block text-sm font-medium text-gray-700"
+          className="block text-sm font-medium text-gray-700 dark:text-gray-300"
         >
           Category
         </label>
@@ -125,7 +125,7 @@ export default function BudgetForm({
           id="category"
           value={category}
           onChange={(e) => setCategory(e.target.value as Category)}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
           disabled={isEditing}
           required
         >
@@ -136,7 +136,7 @@ export default function BudgetForm({
           ))}
         </select>
         {!isEditing && availableCategories.length === 0 && (
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             All categories have budgets for this month
           </p>
         )}
@@ -145,9 +145,12 @@ export default function BudgetForm({
       <div>
         <label
           htmlFor="month"
-          className="block text-sm font-medium text-gray-700"
+          className="block text-sm font-medium text-gray-700 dark:text-gray-300"
         >
-          Month {isEditing && <span className="text-gray-500">(locked)</span>}
+          Month{' '}
+          {isEditing && (
+            <span className="text-gray-500 dark:text-gray-400">(locked)</span>
+          )}
         </label>
         <select
           id="month"
@@ -160,8 +163,8 @@ export default function BudgetForm({
               onMonthChange(newMonth);
             }
           }}
-          className={`mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-            isEditing ? 'bg-gray-100 cursor-not-allowed' : ''
+          className={`mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-700 dark:text-gray-300 ${
+            isEditing ? 'bg-gray-100 cursor-not-allowed dark:bg-gray-800' : ''
           }`}
           disabled={isEditing}
           required
@@ -177,12 +180,12 @@ export default function BudgetForm({
       <div>
         <label
           htmlFor="limit"
-          className="block text-sm font-medium text-gray-700"
+          className="block text-sm font-medium text-gray-700 dark:text-gray-300"
         >
           Budget Limit
         </label>
         <div className="relative mt-1">
-          <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
+          <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500 dark:text-gray-400">
             $
           </span>
           <input
@@ -193,7 +196,7 @@ export default function BudgetForm({
             value={limitAmount}
             onChange={(e) => setLimitAmount(e.target.value)}
             onFocus={(e) => e.target.select()}
-            className="block w-full rounded-md border border-gray-300 py-2 pl-7 pr-3 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="block w-full rounded-md border border-gray-300 bg-white py-2 pl-7 pr-3 text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-300 dark:bg-gray-700 dark:text-gray-300"
             placeholder="500.00"
             required
           />

@@ -79,7 +79,7 @@ export default function ExpenseForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
-        <div className="rounded-md bg-red-50 p-3 text-sm text-red-800">
+        <div className="rounded-md bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/20 dark:text-red-400">
           {error}
         </div>
       )}
@@ -87,12 +87,12 @@ export default function ExpenseForm({
       <div>
         <label
           htmlFor="amount"
-          className="block text-sm font-medium text-gray-700"
+          className="block text-sm font-medium text-gray-700 dark:text-gray-300"
         >
           Amount
         </label>
         <div className="relative mt-1">
-          <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
+          <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500 dark:text-gray-400">
             $
           </span>
           <input
@@ -102,7 +102,7 @@ export default function ExpenseForm({
             min="0"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            className="block w-full rounded-md border border-gray-300 py-2 pl-7 pr-3 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="block w-full rounded-md border border-gray-300 bg-white py-2 pl-7 pr-3 text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
             placeholder="0.00"
             required
           />
@@ -112,7 +112,7 @@ export default function ExpenseForm({
       <div>
         <label
           htmlFor="category"
-          className="block text-sm font-medium text-gray-700"
+          className="block text-sm font-medium text-gray-700 dark:text-gray-300"
         >
           Category
         </label>
@@ -120,7 +120,7 @@ export default function ExpenseForm({
           id="category"
           value={category}
           onChange={(e) => setCategory(e.target.value as Category)}
-          className="mt-1 block w-full rounded-md border border-gray-300 bg-white py-2 px-3 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="mt-1 block w-full rounded-md border border-gray-300 bg-white py-2 px-3 text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
           required
         >
           {CATEGORIES.map((cat) => (
@@ -134,7 +134,7 @@ export default function ExpenseForm({
       <div>
         <label
           htmlFor="date"
-          className="block text-sm font-medium text-gray-700"
+          className="block text-sm font-medium text-gray-700 dark:text-gray-300"
         >
           Date
         </label>
@@ -143,7 +143,7 @@ export default function ExpenseForm({
           id="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
-          className="mt-1 block w-full rounded-md border border-gray-300 py-2 px-3 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="mt-1 block w-full rounded-md border border-gray-300 bg-white py-2 px-3 text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
           required
         />
       </div>
@@ -151,7 +151,7 @@ export default function ExpenseForm({
       <div>
         <label
           htmlFor="description"
-          className="block text-sm font-medium text-gray-700"
+          className="block text-sm font-medium text-gray-700 dark:text-gray-300"
         >
           Description (optional)
         </label>
@@ -160,7 +160,7 @@ export default function ExpenseForm({
           id="description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          className="mt-1 block w-full rounded-md border border-gray-300 py-2 px-3 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="mt-1 block w-full rounded-md border border-gray-300 bg-white py-2 px-3 text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
           placeholder="e.g., Groceries at Costco"
         />
       </div>

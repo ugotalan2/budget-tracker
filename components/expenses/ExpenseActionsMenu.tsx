@@ -45,7 +45,7 @@ export default function ExpenseActionsMenu({
       {/* Three-dot button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+        className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors dark:text-gray-500 dark:hover:bg-gray-900/30 dark:hover:text-gray-400"
         title="More options"
       >
         <MoreVertical className="h-5 w-5" />
@@ -53,19 +53,21 @@ export default function ExpenseActionsMenu({
 
       {/* Dropdown menu */}
       {isOpen && (
-        <div className="absolute right-0 top-8 z-10 w-56 rounded-lg border border-gray-200 bg-white shadow-lg">
+        <div className="absolute right-0 top-8 z-10 w-56 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
           <div className="p-1">
             <button
               onClick={() => {
                 onExportVisible();
                 setIsOpen(false);
               }}
-              className="flex w-full items-start gap-3 rounded-md px-3 py-2.5 text-left text-sm hover:bg-gray-50 transition-colors"
+              className="flex w-full items-start gap-3 rounded-md px-3 py-2.5 text-left text-sm hover:bg-gray-50 transition-colors dark:hover:bg-gray-700"
             >
-              <Download className="mt-0.5 h-4 w-4 text-gray-400" />
+              <Download className="mt-0.5 h-4 w-4 text-gray-400 dark:text-gray-500" />
               <div>
-                <p className="font-medium text-gray-900">Export Visible</p>
-                <p className="text-xs text-gray-500">
+                <p className="font-medium text-gray-900 dark:text-white">
+                  Export Visible
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
                   {visibleCount} expense{visibleCount !== 1 ? 's' : ''}
                 </p>
               </div>
@@ -76,12 +78,14 @@ export default function ExpenseActionsMenu({
                 onExportAll();
                 setIsOpen(false);
               }}
-              className="flex w-full items-start gap-3 rounded-md px-3 py-2.5 text-left text-sm hover:bg-gray-50 transition-colors"
+              className="flex w-full items-start gap-3 rounded-md px-3 py-2.5 text-left text-sm hover:bg-gray-50 transition-colors dark:hover:bg-gray-700"
             >
-              <Download className="mt-0.5 h-4 w-4 text-gray-400" />
+              <Download className="mt-0.5 h-4 w-4 text-gray-400 dark:text-gray-500" />
               <div>
-                <p className="font-medium text-gray-900">Export All Matching</p>
-                <p className="text-xs text-gray-500">
+                <p className="font-medium text-gray-900 dark:text-white">
+                  Export All Matching
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
                   {filterLabel || 'All expenses'}
                 </p>
               </div>
@@ -92,12 +96,16 @@ export default function ExpenseActionsMenu({
                 onExportMonth();
                 setIsOpen(false);
               }}
-              className="flex w-full items-start gap-3 rounded-md px-3 py-2.5 text-left text-sm hover:bg-gray-50 transition-colors rounded-b-md"
+              className="flex w-full items-start gap-3 rounded-md px-3 py-2.5 text-left text-sm hover:bg-gray-50 transition-colors rounded-b-md dark:hover:bg-gray-700"
             >
-              <Download className="mt-0.5 h-4 w-4 text-gray-400" />
+              <Download className="mt-0.5 h-4 w-4 text-gray-400 dark:text-gray-500" />
               <div>
-                <p className="font-medium text-gray-900">Export This Month</p>
-                <p className="text-xs text-gray-500">{monthLabel}</p>
+                <p className="font-medium text-gray-900 dark:text-white">
+                  Export This Month
+                </p>
+                <p className="text-xs text-gray-500 dark;text-gray-400">
+                  {monthLabel}
+                </p>
               </div>
             </button>
           </div>

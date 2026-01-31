@@ -21,7 +21,7 @@ export default function BudgetComparisonChart({
 }: BudgetComparisonChartProps) {
   if (data.length === 0) {
     return (
-      <div className="flex h-64 items-center justify-center text-gray-500">
+      <div className="flex h-64 items-center justify-center text-gray-500 dark:text-gray-400">
         No budget data for this month
       </div>
     );

@@ -20,7 +20,7 @@ const COLORS = [
 export default function CategoryChart({ data }: CategoryChartProps) {
   if (data.length === 0) {
     return (
-      <div className="flex h-64 items-center justify-center text-gray-500">
+      <div className="flex h-64 items-center justify-center text-gray-500 dark:text-gray-400">
         No spending data for this month
       </div>
     );
@@ -61,14 +61,14 @@ export default function CategoryChart({ data }: CategoryChartProps) {
                 if (active && payload && payload.length) {
                   const item = payload[0];
                   return (
-                    <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-lg">
-                      <p className="font-semibold text-gray-900">
+                    <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                      <p className="font-semibold text-gray-900 dark:text-white">
                         {item.payload.category}
                       </p>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
                         {formatCurrency(item.value as number)}
                       </p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
                         {(((item.value as number) / total) * 100).toFixed(1)}%
                         of total
                       </p>
@@ -81,9 +81,11 @@ export default function CategoryChart({ data }: CategoryChartProps) {
           </PieChart>
         </ResponsiveContainer>
       </div>
-      <div className="mt-4 border-t border-gray-200 pt-4 text-center">
-        <p className="text-sm text-gray-600">Total Spending</p>
-        <p className="text-2xl font-bold text-gray-900">
+      <div className="mt-4 border-t border-gray-200 pt-4 text-center dark:border-gray-700">
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          Total Spending
+        </p>
+        <p className="text-2xl font-bold text-gray-900 dark:text-white">
           {formatCurrency(total)}
         </p>
       </div>

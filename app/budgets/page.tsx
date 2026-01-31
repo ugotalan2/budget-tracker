@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Category, type Budget, type Expense } from '@/lib/types';
 import BudgetForm from '@/components/budgets/BudgetForm';
@@ -286,25 +287,25 @@ export default function BudgetsPage() {
 
   if (isLoading && !isNavigating) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
-          <div className="mb-4 inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
-          <p className="text-gray-600">Loading budgets...</p>
+          <div className="mb-4 inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent dark:border-blue-400"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading budgets...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen bg-gray-50 p-8 dark:bg-gray-900">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Navigation Loading Indicator */}
         {isNavigating && (
           <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-            <div className="rounded-lg bg-blue-600 px-6 py-3 shadow-lg">
+            <div className="rounded-lg bg-blue-600 px-6 py-3 shadow-lg dark:bg-blue-300">
               <div className="flex items-center gap-3">
-                <div className="h-5 w-5 animate-spin rounded-full border-2 border-solid border-white border-r-transparent"></div>
-                <span className="text-sm font-medium text-white">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-solid border-white border-r-transparent dark:border-gray-800"></div>
+                <span className="text-sm font-medium text-white dark:text-gray-800">
                   Loading...
                 </span>
               </div>
@@ -312,8 +313,10 @@ export default function BudgetsPage() {
           </div>
         )}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Budgets</h1>
-          <p className="mt-2 text-gray-600">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+            Budgets
+          </h1>
+          <p className="mt-2 text-gray-600 dark:text-gray-400">
             Set spending limits for each category
           </p>
         </div>
@@ -321,8 +324,8 @@ export default function BudgetsPage() {
         <div className="grid gap-8 lg:grid-cols-3">
           {/* Form Column */}
           <div className="lg:col-span-1" ref={formRef}>
-            <div className="rounded-lg bg-white p-6 shadow">
-              <h2 className="mb-4 text-lg font-semibold text-gray-900">
+            <div className="rounded-lg bg-white p-6 shadow dark:bg-gray-800">
+              <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
                 {editingBudget ? 'Edit Budget' : 'Set Budget'}
               </h2>
 
@@ -364,9 +367,9 @@ export default function BudgetsPage() {
 
           {/* List Column */}
           <div className="lg:col-span-2">
-            <div className="rounded-lg bg-white p-6 shadow">
+            <div className="rounded-lg bg-white p-6 shadow dark:bg-gray-800">
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                   Monthly Budgets
                 </h2>
                 <div className="flex items-center gap-2">
@@ -376,9 +379,9 @@ export default function BudgetsPage() {
                       setSelectedMonth(getPreviousMonth(selectedMonth));
                     }}
                     disabled={isNavigating}
-                    className="rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50"
+                    className="rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700"
                   >
-                    {isNavigating ? '...' : '← Prev'}
+                    <ChevronLeft className="h-4 w-4" />
                   </button>
 
                   <select
@@ -388,7 +391,7 @@ export default function BudgetsPage() {
                       setSelectedMonth(e.target.value);
                     }}
                     disabled={isNavigating}
-                    className="rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500  dark:border-gray-600"
                   >
                     {generateMonthOptions(12).map((opt) => (
                       <option key={opt.value} value={opt.value}>
@@ -402,34 +405,38 @@ export default function BudgetsPage() {
                       setIsNavigating(true);
                       setSelectedMonth(getNextMonth(selectedMonth));
                     }}
-                    className="rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50"
+                    className="rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700"
                   >
-                    {isNavigating ? '...' : 'Next →'}
+                    <ChevronRight className="h-4 w-4" />
                   </button>
                 </div>
               </div>
 
               {/* Budget Summary */}
               {budgets.length > 0 && (
-                <div className="mb-6 rounded-lg border-2 border-blue-200 bg-blue-50 p-6">
-                  <h3 className="mb-4 text-lg font-semibold text-gray-900">
+                <div className="mb-6 rounded-lg border-2 border-blue-200 bg-blue-50 p-6 dark:border-blue-700 dark:bg-blue-900/20">
+                  <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
                     Monthly Summary
                   </h3>
 
                   <div className="mb-4 grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm text-gray-600">Total Budget</p>
-                      <p className="text-2xl font-bold text-gray-900">
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Total Budget
+                      </p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white">
                         {formatCurrency(overallStats.totalBudget)}
                       </p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600">Total Spent</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Total Spent
+                      </p>
                       <p
                         className={`text-2xl font-bold ${
                           overallStats.totalSpent > overallStats.totalBudget
-                            ? 'text-red-600'
-                            : 'text-gray-900'
+                            ? 'text-red-600 dark:text-red-400'
+                            : 'text-gray-900 dark:text-white'
                         }`}
                       >
                         {formatCurrency(overallStats.totalSpent)}
@@ -440,12 +447,14 @@ export default function BudgetsPage() {
                   {/* Overall Progress Bar */}
                   <div className="mb-4">
                     <div className="mb-2 flex justify-between text-sm">
-                      <span className="text-gray-600">Overall Progress</span>
-                      <span className="font-medium text-gray-900">
+                      <span className="text-gray-600 dark:text-gray-400">
+                        Overall Progress
+                      </span>
+                      <span className="font-medium text-gray-900 dark:text-white">
                         {overallPercentage.toFixed(1)}%
                       </span>
                     </div>
-                    <div className="relative h-3 w-full overflow-hidden rounded-full bg-gray-200">
+                    <div className="relative h-3 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
                       <div
                         className={`h-full transition-all duration-300 ${
                           overallPercentage > 100
@@ -463,28 +472,34 @@ export default function BudgetsPage() {
 
                   {/* Category Status */}
                   <div className="grid grid-cols-3 gap-2 text-center text-sm">
-                    <div className="rounded-lg bg-green-100 p-2">
-                      <p className="font-semibold text-green-800">
+                    <div className="rounded-lg bg-green-100 dark:bg-green-800 p-2">
+                      <p className="font-semibold text-green-800 dark:text-green-400">
                         {overallStats.categoriesOnTrack}
                       </p>
-                      <p className="text-xs text-green-600">On Track</p>
+                      <p className="text-xs text-green-600 dark:text-green-300">
+                        On Track
+                      </p>
                     </div>
-                    <div className="rounded-lg bg-yellow-100 p-2">
-                      <p className="font-semibold text-yellow-800">
+                    <div className="rounded-lg bg-yellow-100 p-2 dark:bg-yellow-900/30">
+                      <p className="font-semibold text-yellow-800 dark:text-yellow-400">
                         {overallStats.categoriesWarning}
                       </p>
-                      <p className="text-xs text-yellow-600">Warning</p>
+                      <p className="text-xs text-yellow-600 dark:text-yellow-400">
+                        Warning
+                      </p>
                     </div>
-                    <div className="rounded-lg bg-red-100 p-2">
-                      <p className="font-semibold text-red-800">
+                    <div className="rounded-lg bg-red-100 p-2 dark:bg-red-900/30">
+                      <p className="font-semibold text-red-800 dark:text-red-400">
                         {overallStats.categoriesOverBudget}
                       </p>
-                      <p className="text-xs text-red-600">Over</p>
+                      <p className="text-xs text-red-600 dark:text-red-300">
+                        Over
+                      </p>
                     </div>
                   </div>
 
                   {overallStats.totalSpent > overallStats.totalBudget && (
-                    <div className="mt-4 rounded-md bg-red-100 p-3 text-sm text-red-800">
+                    <div className="mt-4 rounded-md bg-red-100 p-3 text-sm text-red-800 dark:bg-red-900/3 dark:text-red-400">
                       ⚠️ You&apos;re{' '}
                       {formatCurrency(
                         overallStats.totalSpent - overallStats.totalBudget
@@ -497,8 +512,8 @@ export default function BudgetsPage() {
 
               {/* Budget List */}
               {budgets.length === 0 ? (
-                <div className="rounded-lg border-2 border-dashed border-gray-300 p-8 text-center">
-                  <p className="text-lg font-medium text-gray-900">
+                <div className="rounded-lg border-2 border-dashed border-gray-300 p-8 text-center dark:border-gray-600">
+                  <p className="text-lg font-medium text-gray-900 dark:text-white">
                     No budgets for this month
                   </p>
                   <p className="mt-2 text-sm text-gray-500">
@@ -512,7 +527,7 @@ export default function BudgetsPage() {
                     return (
                       <div
                         key={budget.id}
-                        className="relative rounded-lg border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow"
+                        className="relative rounded-lg border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow dark:border-gray-700"
                       >
                         <BudgetProgress
                           category={budget.category}
