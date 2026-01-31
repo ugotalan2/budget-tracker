@@ -69,7 +69,7 @@ export default function ThemeSettings() {
 
       {/* Dropdown menu */}
       {isOpen && (
-        <div className="absolute bottom-12 left-1/2 z-10 w-48 -translate-x-1/2 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+        <div className="absolute top-10 right-0 z-10 w-48 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
           <div className="p-1">
             <div className="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400">
               THEME

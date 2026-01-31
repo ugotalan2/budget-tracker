@@ -27,6 +27,8 @@
     ]
   },
   "dependencies": {
+    "@clerk/nextjs": "^6.37.1",
+    "@clerk/themes": "^2.4.51",
     "@supabase/ssr": "^0.1.0",
     "@supabase/supabase-js": "^2.39.0",
     "date-fns": "^4.1.0",

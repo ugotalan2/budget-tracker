@@ -2,12 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useAuth } from '@clerk/nextjs';
 import { createClient } from '@/lib/supabase/client';
 import { type Expense, type Budget } from '@/lib/types';
 import { formatCurrency } from '@/lib/calculations';
 import CategoryChart from '@/components/dashboard/CategoryChart';
 import SpendingTrendChart from '@/components/dashboard/SpendingTrendChart';
 import BudgetComparisonChart from '@/components/dashboard/BudgetComparisonChart';
+import Select from '@/components/ui/Select';
+import IconButton from '@/components/ui/IconButton';
 import {
   generateMonthOptions,
   getPreviousMonth,
@@ -22,10 +25,14 @@ export default function DashboardPage() {
     new Date().toISOString().slice(0, 7)
   );
   const [prevMonthExpenses, setPrevMonthExpenses] = useState<Expense[]>([]);
+
+  const { userId } = useAuth();
   const supabase = createClient();
 
   // Fetch data for selected month
   const fetchData = async () => {
+    if (!userId) return;
+
     setIsLoading(true);
     const monthStart = selectedMonth + '-01';
     const nextMonth = new Date(selectedMonth + '-01');
@@ -45,17 +52,20 @@ export default function DashboardPage() {
         .select('*')
         .gte('date', monthStart)
         .lt('date', monthEnd)
-        .order('date', { ascending: false }),
+        .order('date', { ascending: false })
+        .eq('user_id', userId),
       supabase
         .from('budgets')
         .select('*')
         .gte('month', monthStart)
-        .lt('month', monthEnd),
+        .lt('month', monthEnd)
+        .eq('user_id', userId),
       supabase
         .from('expenses')
         .select('*')
         .gte('date', prevMonthStart)
-        .lt('date', prevMonthEnd),
+        .lt('date', prevMonthEnd)
+        .eq('user_id', userId),
     ]);
 
     if (expensesRes.data) setExpenses(expensesRes.data);
@@ -67,7 +77,7 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedMonth]);
+  }, [selectedMonth, userId]);
 
   // Calculate stats
   const totalSpent = expenses.reduce((sum, expense) => sum + expense.amount, 0);
@@ -169,29 +179,24 @@ export default function DashboardPage() {
 
           {/* Month Navigation */}
           <div className="flex items-center gap-2">
-            <button
+            <IconButton
+              icon={<ChevronLeft className="h-4 w-4" />}
               onClick={() => setSelectedMonth(getPreviousMonth(selectedMonth))}
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:focus:border-blue-400 dark:focus:ring-blue-400"
-            >
-              {generateMonthOptions(12).map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-            <button
+            />
+            <div className="w-44">
+              <Select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                options={generateMonthOptions(12).map((opt) => ({
+                  value: opt.value,
+                  label: opt.label,
+                }))}
+              />
+            </div>
+            <IconButton
+              icon={<ChevronRight className="h-4 w-4" />}
               onClick={() => setSelectedMonth(getNextMonth(selectedMonth))}
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
+            />
           </div>
         </div>
 

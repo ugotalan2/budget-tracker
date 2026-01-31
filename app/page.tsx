@@ -1,6 +1,25 @@
-import Link from 'next/link';
+'use client';
+
+import { useAuth } from '@clerk/nextjs';
+import { SignInButton, SignUpButton } from '@clerk/nextjs';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import Button from '@/components/ui/Button';
 
 export default function Home() {
+  const { isSignedIn } = useAuth();
+  const router = useRouter();
+
+  // Redirect to dashboard if already signed in
+  useEffect(() => {
+    if (isSignedIn) {
+      router.push('/dashboard');
+    }
+  }, [isSignedIn, router]);
+
+  // If signed in, render nothing while the redirect happens
+  if (isSignedIn) return null;
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center">
       <div className="text-center">
@@ -10,16 +29,18 @@ export default function Home() {
         <p className="mt-4 text-lg text-gray-600 dark:text-gray-400">
           Track your expenses, manage budgets, and achieve your financial goals
         </p>
-
-        <div className="mt-8">
-          <Link
-            href="/dashboard"
-            className="rounded-md bg-blue-600 px-8 py-3 text-lg font-medium text-white hover:bg-blue-700"
-          >
-            Get Started
-          </Link>
+        <div className="mt-8 flex items-center justify-center gap-3">
+          <SignUpButton>
+            <Button variant="secondary" size="md">
+              Sign Up
+            </Button>
+          </SignUpButton>
+          <SignInButton>
+            <Button variant="primary" size="md">
+              Sign In
+            </Button>
+          </SignInButton>
         </div>
-
         <div className="mt-12 grid gap-8 sm:grid-cols-3">
           <div className="rounded-lg border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -29,7 +50,6 @@ export default function Home() {
               Easily add and categorize your daily expenses
             </p>
           </div>
-
           <div className="rounded-lg border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
               Set Budgets
@@ -38,7 +58,6 @@ export default function Home() {
               Create monthly budgets and track your spending
             </p>
           </div>
-
           <div className="rounded-lg border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
               View Insights

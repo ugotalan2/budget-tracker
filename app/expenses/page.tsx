@@ -20,6 +20,7 @@ import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import Select from '@/components/ui/Select';
 import IconButton from '@/components/ui/IconButton';
 import SearchInput from '@/components/ui/SearchInput';
+import { useAuth } from '@clerk/nextjs';
 import {
   generateMonthOptions,
   getPreviousMonth,
@@ -54,6 +55,7 @@ export default function ExpensesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
+  const { userId } = useAuth();
   const supabase = createClient();
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
@@ -64,7 +66,7 @@ export default function ExpensesPage() {
 
       const currentOffset = reset ? 0 : offsetRef.current;
 
-      let query = supabase.from('expenses').select('*');
+      let query = supabase.from('expenses').select('*').eq('user_id', userId);
 
       // Apply category filter
       if (categoryFilter !== 'All') {
@@ -103,7 +105,7 @@ export default function ExpensesPage() {
 
       setIsLoading(false);
     },
-    [categoryFilter, sortBy, sortOrder, debouncedSearch, supabase]
+    [categoryFilter, sortBy, sortOrder, debouncedSearch, supabase, userId]
   );
 
   // Fetch summary stats for current month
@@ -114,7 +116,8 @@ export default function ExpensesPage() {
       .from('expenses')
       .select('amount, category')
       .gte('date', start)
-      .lte('date', end);
+      .lte('date', end)
+      .eq('user_id', userId);
 
     if (!error && data) {
       const totalSpent = data.reduce(
@@ -136,7 +139,7 @@ export default function ExpensesPage() {
         byCategory,
       });
     }
-  }, [summaryMonth, supabase]);
+  }, [summaryMonth, supabase, userId]);
 
   // Initial load
   useEffect(() => {
@@ -206,11 +209,10 @@ export default function ExpensesPage() {
     description: string;
     date: string;
   }) => {
-    // TEMPORARY: Use a test user ID for development
-    const devUserId = '00000000-0000-0000-0000-000000000000';
+    if (!userId) return;
 
     const { error } = await supabase.from('expenses').insert({
-      user_id: devUserId,
+      user_id: userId,
       ...expenseData,
     });
 
@@ -233,7 +235,8 @@ export default function ExpensesPage() {
     const { error } = await supabase
       .from('expenses')
       .delete()
-      .eq('id', confirmDelete);
+      .eq('id', confirmDelete)
+      .eq('user_id', userId);
 
     if (error) {
       alert('Failed to delete expense.');
@@ -260,7 +263,8 @@ export default function ExpensesPage() {
     const { error } = await supabase
       .from('expenses')
       .update(expenseData)
-      .eq('id', id);
+      .eq('id', id)
+      .eq('user_id', userId);
 
     if (error) {
       throw new Error(error.message);
@@ -281,7 +285,7 @@ export default function ExpensesPage() {
 
   // Export all matching expenses (fetch without pagination)
   const handleExportAll = async () => {
-    let query = supabase.from('expenses').select('*');
+    let query = supabase.from('expenses').select('*').eq('user_id', userId);
 
     // Apply same filters as current view
     if (categoryFilter !== 'All') {
@@ -327,7 +331,8 @@ export default function ExpensesPage() {
       .select('*')
       .gte('date', start)
       .lte('date', end)
-      .order('date', { ascending: false });
+      .order('date', { ascending: false })
+      .eq('user_id', userId);
 
     if (error) {
       alert('Failed to fetch expenses for export');

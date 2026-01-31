@@ -10,6 +10,7 @@ import { formatCurrency } from '@/lib/calculations';
 import Select from '@/components/ui/Select';
 import IconButton from '@/components/ui/IconButton';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import { useAuth } from '@clerk/nextjs';
 import {
   generateMonthOptions,
   getPreviousMonth,
@@ -30,6 +31,8 @@ export default function BudgetsPage() {
     Category[]
   >([]);
   const [formMonth, setFormMonth] = useState(selectedMonth);
+
+  const { userId } = useAuth();
   const supabase = createClient();
   const formRef = useRef<HTMLDivElement>(null);
 
@@ -49,7 +52,8 @@ export default function BudgetsPage() {
       .select('*')
       .gte('month', monthStart)
       .lt('month', monthEnd)
-      .order('category');
+      .order('category')
+      .eq('user_id', userId);
 
     if (!error && data) {
       setBudgets(data);
@@ -69,7 +73,8 @@ export default function BudgetsPage() {
       .from('budgets')
       .select('category')
       .gte('month', monthStart)
-      .lt('month', monthEnd);
+      .lt('month', monthEnd)
+      .eq('user_id', userId);
 
     setFormExistingCategories(
       data?.map((budget: Budget) => budget.category) || []
@@ -102,7 +107,8 @@ export default function BudgetsPage() {
       .from('expenses')
       .select('*')
       .gte('date', monthStart)
-      .lt('date', monthEnd);
+      .lt('date', monthEnd)
+      .eq('user_id', userId);
 
     if (!error && data) {
       setExpenses(data);
@@ -175,7 +181,8 @@ export default function BudgetsPage() {
     limit_amount: number;
     month: string;
   }) => {
-    const devUserId = '00000000-0000-0000-0000-000000000000';
+    if (!userId) return;
+
     const targetMonth = budgetData.month.slice(0, 7);
 
     if (formExistingCategories.includes(budgetData.category as Category)) {
@@ -186,7 +193,7 @@ export default function BudgetsPage() {
     }
 
     const { error } = await supabase.from('budgets').insert({
-      user_id: devUserId,
+      user_id: userId,
       ...budgetData,
     });
 
@@ -220,7 +227,8 @@ export default function BudgetsPage() {
     const { error } = await supabase
       .from('budgets')
       .update({ limit_amount: budgetData.limit_amount })
-      .eq('id', id);
+      .eq('id', id)
+      .eq('user_id', userId);
 
     if (error) {
       alert('Failed to update budget: ' + error.message);
@@ -239,9 +247,10 @@ export default function BudgetsPage() {
     if (!confirmDelete) return;
 
     const { error } = await supabase
-      .from('expenses')
+      .from('budgets')
       .delete()
-      .eq('id', confirmDelete);
+      .eq('id', confirmDelete)
+      .eq('user_id', userId);
 
     if (error) {
       alert('Failed to delete budget.');
