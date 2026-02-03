@@ -13,6 +13,7 @@ const mockExpenses: Expense[] = [
   {
     id: '1',
     user_id: 'user1',
+    account_id: null,
     amount: 50,
     category: 'Food',
     description: 'Groceries',
@@ -23,6 +24,7 @@ const mockExpenses: Expense[] = [
   {
     id: '2',
     user_id: 'user1',
+    account_id: null,
     amount: 30,
     category: 'Food',
     description: 'Restaurant',
@@ -33,6 +35,7 @@ const mockExpenses: Expense[] = [
   {
     id: '3',
     user_id: 'user1',
+    account_id: null,
     amount: 20,
     category: 'Transport',
     description: 'Gas',
