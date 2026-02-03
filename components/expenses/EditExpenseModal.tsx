@@ -1,7 +1,7 @@
 'use client';
 
 import ExpenseForm from './ExpenseForm';
-import { type Expense, type Category, type Account } from '@/lib/types';
+import { type Expense, type Account } from '@/lib/types';
 
 type EditExpenseModalProps = {
   expense: Expense;
@@ -10,7 +10,7 @@ type EditExpenseModalProps = {
     id: string,
     data: {
       amount: number;
-      category: Category;
+      category: string;
       description: string;
       date: string;
       account_id: string;
@@ -27,7 +27,7 @@ export default function EditExpenseModal({
 }: EditExpenseModalProps) {
   const handleSubmit = async (expenseData: {
     amount: number;
-    category: Category;
+    category: string;
     description: string;
     date: string;
     account_id: string;
@@ -60,7 +60,7 @@ export default function EditExpenseModal({
           accounts={accounts}
           initialData={{
             amount: expense.amount,
-            category: expense.category as Category,
+            category: expense.category,
             description: expense.description || '',
             date: expense.date,
             account_id: expense.account_id || '',

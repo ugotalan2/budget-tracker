@@ -9,6 +9,7 @@ import {
   Wallet,
   Settings,
   CreditCard,
+  Tag,
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -20,6 +21,7 @@ export default function Sidebar() {
     { href: '/expenses', label: 'Expenses', icon: Receipt },
     { href: '/budgets', label: 'Budgets', icon: Wallet },
     { href: '/accounts', label: 'Accounts', icon: CreditCard },
+    { href: '/categories', label: 'Categories', icon: Tag },
     { href: '/settings', label: 'Settings', icon: Settings },
   ];
 

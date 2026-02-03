@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { Category, type Budget, type Expense } from '@/lib/types';
+import { type Budget, type Expense } from '@/lib/types';
 import BudgetForm from '@/components/budgets/BudgetForm';
 import BudgetProgress from '@/components/budgets/BudgetProgress';
 import { formatCurrency } from '@/lib/calculations';
@@ -28,7 +28,7 @@ export default function BudgetsPage() {
   );
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
   const [formExistingCategories, setFormExistingCategories] = useState<
-    Category[]
+    string[]
   >([]);
   const [formMonth, setFormMonth] = useState(selectedMonth);
 
@@ -77,7 +77,7 @@ export default function BudgetsPage() {
       .eq('user_id', userId);
 
     setFormExistingCategories(
-      data?.map((budget: Budget) => budget.category) || []
+      data?.map((budget: Budget) => budget.category as string) || []
     );
   };
 
@@ -185,7 +185,7 @@ export default function BudgetsPage() {
 
     const targetMonth = budgetData.month.slice(0, 7);
 
-    if (formExistingCategories.includes(budgetData.category as Category)) {
+    if (formExistingCategories.includes(budgetData.category)) {
       alert(
         `You already have a ${budgetData.category} budget for ${formatMonthYear(targetMonth)}. Delete it first or click Edit.`
       );
@@ -366,7 +366,7 @@ export default function BudgetsPage() {
                 initialData={
                   editingBudget
                     ? {
-                        category: editingBudget.category as Category,
+                        category: editingBudget.category,
                         limit_amount: editingBudget.limit_amount,
                         month: editingBudget.month.slice(0, 7),
                       }

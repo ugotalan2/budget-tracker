@@ -98,6 +98,18 @@ export default function Select({
     }
   }, [isOpen, selectedIndex]);
 
+  // Close dropdown on scroll
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleScroll = () => {
+      closeDropdown();
+    };
+
+    window.addEventListener('scroll', handleScroll, true); // Use capture phase to catch all scrolls
+    return () => window.removeEventListener('scroll', handleScroll, true);
+  }, [isOpen, closeDropdown]);
+
   const handleOpen = () => {
     if (disabled) return;
     const trigger = triggerRef.current;
@@ -112,25 +124,21 @@ export default function Select({
     const spaceBelow = viewportHeight - rect.bottom - GAP;
     const spaceAbove = rect.top - GAP;
 
-    // Open upward if not enough space below and more space above
-    const top =
-      spaceBelow >= maxHeight
-        ? rect.bottom + GAP
-        : spaceAbove >= maxHeight
-          ? rect.top - maxHeight - GAP
-          : // Not enough room either way – use whichever is bigger
-            spaceBelow >= spaceAbove
-            ? rect.bottom + GAP
-            : rect.top - maxHeight - GAP;
+    // Prefer opening downward unless there's significantly more space above
+    // Only open upward if space below is less than 150px AND space above is at least 200px
+    const shouldOpenUpward = spaceBelow < 150 && spaceAbove >= 200;
+
+    const top = shouldOpenUpward
+      ? rect.top - Math.min(maxHeight, spaceAbove) - GAP
+      : rect.bottom + GAP;
 
     setPosition({
       top,
       left: rect.left,
       width: rect.width,
-      maxHeight:
-        spaceBelow >= maxHeight || spaceAbove < spaceBelow
-          ? Math.min(maxHeight, spaceBelow)
-          : Math.min(maxHeight, spaceAbove),
+      maxHeight: shouldOpenUpward
+        ? Math.min(maxHeight, spaceAbove)
+        : Math.min(maxHeight, spaceBelow),
     });
     setIsOpen(true);
   };

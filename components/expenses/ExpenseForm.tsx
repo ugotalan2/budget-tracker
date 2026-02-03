@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { type Account } from '@/lib/types';
-import { CATEGORIES, Category } from '@/lib/types';
+import { CATEGORIES } from '@/lib/types';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
@@ -10,14 +10,14 @@ import Button from '@/components/ui/Button';
 type ExpenseFormProps = {
   onSubmit: (expense: {
     amount: number;
-    category: Category;
+    category: string;
     description: string;
     date: string;
     account_id: string;
   }) => Promise<void>;
   initialData?: {
     amount: number;
-    category: Category;
+    category: string;
     description: string;
     date: string;
     account_id: string;
@@ -40,9 +40,7 @@ export default function ExpenseForm({
       : activeAccounts.find((a) => a.is_primary)?.id || '';
 
   const [amount, setAmount] = useState(initialData?.amount.toString() || '');
-  const [category, setCategory] = useState<Category>(
-    initialData?.category || 'Food'
-  );
+  const [category, setCategory] = useState(initialData?.category || 'Food');
   const [description, setDescription] = useState(
     initialData?.description || ''
   );
@@ -131,7 +129,7 @@ export default function ExpenseForm({
         label="Category"
         id="category"
         value={category}
-        onChange={(e) => setCategory(e.target.value as Category)}
+        onChange={(e) => setCategory(e.target.value)}
         options={categoryOptions}
         required
       />

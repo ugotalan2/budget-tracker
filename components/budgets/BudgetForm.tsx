@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { CATEGORIES, type Category } from '@/lib/types';
+import { CATEGORIES } from '@/lib/types';
 import { generateMonthOptions } from '@/lib/dateUtils';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
@@ -9,12 +9,12 @@ import Button from '@/components/ui/Button';
 
 type BudgetFormProps = {
   onSubmit: (budget: {
-    category: Category;
+    category: string;
     limit_amount: number;
     month: string;
   }) => Promise<void>;
   initialData?: {
-    category: Category;
+    category: string;
     limit_amount: number | '';
     month: string;
   };
@@ -36,7 +36,7 @@ export default function BudgetForm({
     ? CATEGORIES
     : CATEGORIES.filter((category) => !existingCategories.includes(category));
 
-  const [category, setCategory] = useState<Category>(
+  const [category, setCategory] = useState<string>(
     initialData?.category || availableCategories[0] || 'Food'
   );
   const [limitAmount, setLimitAmount] = useState(
@@ -63,7 +63,8 @@ export default function BudgetForm({
   // Update category when available categories change
   useEffect(() => {
     if (!isEditing && !initialData && availableCategories.length > 0) {
-      if (!availableCategories.includes(category)) {
+      const categoryExists = availableCategories.some((c) => c === category);
+      if (categoryExists) {
         setCategory(availableCategories[0]);
       }
     }
@@ -126,7 +127,7 @@ export default function BudgetForm({
         label="Category"
         id="category"
         value={category}
-        onChange={(e) => setCategory(e.target.value as Category)}
+        onChange={(e) => setCategory(e.target.value)}
         options={categoryOptions}
         disabled={isEditing}
         hint={
