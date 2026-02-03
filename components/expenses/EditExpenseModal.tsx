@@ -1,10 +1,11 @@
 'use client';
 
 import ExpenseForm from './ExpenseForm';
-import { type Expense, type Category } from '@/lib/types';
+import { type Expense, type Category, type Account } from '@/lib/types';
 
 type EditExpenseModalProps = {
   expense: Expense;
+  accounts: Account[];
   onUpdate: (
     id: string,
     data: {
@@ -12,6 +13,7 @@ type EditExpenseModalProps = {
       category: Category;
       description: string;
       date: string;
+      account_id: string;
     }
   ) => Promise<void>;
   onClose: () => void;
@@ -19,6 +21,7 @@ type EditExpenseModalProps = {
 
 export default function EditExpenseModal({
   expense,
+  accounts,
   onUpdate,
   onClose,
 }: EditExpenseModalProps) {
@@ -27,6 +30,7 @@ export default function EditExpenseModal({
     category: Category;
     description: string;
     date: string;
+    account_id: string;
   }) => {
     try {
       await onUpdate(expense.id, expenseData);
@@ -53,11 +57,13 @@ export default function EditExpenseModal({
 
         <ExpenseForm
           onSubmit={handleSubmit}
+          accounts={accounts}
           initialData={{
             amount: expense.amount,
             category: expense.category as Category,
             description: expense.description || '',
             date: expense.date,
+            account_id: expense.account_id || '',
           }}
           isEditing={true}
         />

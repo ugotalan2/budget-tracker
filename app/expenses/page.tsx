@@ -11,7 +11,7 @@ import {
 import ExpenseForm from '@/components/expenses/ExpenseForm';
 import { formatCurrency } from '@/lib/calculations';
 import { createClient } from '@/lib/supabase/client';
-import { CATEGORIES, Expense } from '@/lib/types';
+import { CATEGORIES, Expense, Account } from '@/lib/types';
 import { exportExpensesToCSV } from '@/lib/exportUtils';
 import EditExpenseModal from '@/components/expenses/EditExpenseModal';
 import ExpenseActionsMenu from '@/components/expenses/ExpenseActionsMenu';
@@ -31,6 +31,7 @@ import {
 
 export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
@@ -107,6 +108,28 @@ export default function ExpensesPage() {
     },
     [categoryFilter, sortBy, sortOrder, debouncedSearch, supabase, userId]
   );
+
+  // Fetch accounts
+  const fetchAccounts = async () => {
+    if (!userId) return;
+
+    const { data } = await supabase
+      .from('accounts')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .order('is_primary', { ascending: false })
+      .order('sort_order');
+
+    if (data) {
+      setAccounts(data);
+    }
+  };
+
+  useEffect(() => {
+    fetchAccounts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
 
   // Fetch summary stats for current month
   const fetchSummary = useCallback(async () => {
@@ -258,6 +281,7 @@ export default function ExpensesPage() {
       category: string;
       description: string;
       date: string;
+      account_id: string;
     }
   ) => {
     const { error } = await supabase
@@ -381,7 +405,7 @@ export default function ExpensesPage() {
               <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
                 Add Expense
               </h2>
-              <ExpenseForm onSubmit={handleAddExpense} />
+              <ExpenseForm onSubmit={handleAddExpense} accounts={accounts} />
             </div>
 
             {/* Expense Summary Card */}
@@ -677,6 +701,7 @@ export default function ExpensesPage() {
       {editingExpense && (
         <EditExpenseModal
           expense={editingExpense}
+          accounts={accounts}
           onUpdate={handleUpdate}
           onClose={() => setEditingExpense(null)}
         />

@@ -3,7 +3,13 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
-import { LayoutDashboard, Receipt, Wallet, Settings } from 'lucide-react';
+import {
+  LayoutDashboard,
+  Receipt,
+  Wallet,
+  Settings,
+  CreditCard,
+} from 'lucide-react';
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -13,6 +19,7 @@ export default function Sidebar() {
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/expenses', label: 'Expenses', icon: Receipt },
     { href: '/budgets', label: 'Budgets', icon: Wallet },
+    { href: '/accounts', label: 'Accounts', icon: CreditCard },
     { href: '/settings', label: 'Settings', icon: Settings },
   ];
 

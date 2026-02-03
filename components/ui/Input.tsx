@@ -35,7 +35,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
               focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500
               disabled:cursor-not-allowed disabled:opacity-50
               dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400
-              ${props.type === 'date' || props.type === 'month' ? 'dark:[color-scheme:dark]' : ''}
+              ${props.type === 'date' || props.type === 'month' ? 'dark:[color-scheme:dark] py-2' : ''}
               ${prefix ? 'pl-7' : ''}
               ${className}
             `}

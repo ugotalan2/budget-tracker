@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { type Account } from '@/lib/types';
 import { CATEGORIES, Category } from '@/lib/types';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
@@ -12,21 +13,32 @@ type ExpenseFormProps = {
     category: Category;
     description: string;
     date: string;
+    account_id: string;
   }) => Promise<void>;
   initialData?: {
     amount: number;
     category: Category;
     description: string;
     date: string;
+    account_id: string;
   };
   isEditing?: boolean;
+  accounts: Account[];
 };
 
 export default function ExpenseForm({
   onSubmit,
   initialData,
   isEditing = false,
+  accounts,
 }: ExpenseFormProps) {
+  const activeAccounts = accounts.filter((a) => a.is_active);
+  const showAccountField = activeAccounts.length > 1;
+  const defaultAccount =
+    activeAccounts.length === 1
+      ? activeAccounts[0].id
+      : activeAccounts.find((a) => a.is_primary)?.id || '';
+
   const [amount, setAmount] = useState(initialData?.amount.toString() || '');
   const [category, setCategory] = useState<Category>(
     initialData?.category || 'Food'
@@ -36,6 +48,9 @@ export default function ExpenseForm({
   );
   const [date, setDate] = useState(
     initialData?.date || new Date().toISOString().split('T')[0]
+  );
+  const [accountId, setAccountId] = useState(
+    initialData?.account_id || defaultAccount
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -59,14 +74,20 @@ export default function ExpenseForm({
       return;
     }
 
+    if (!accountId && activeAccounts.length > 0) {
+      setError('Please select an account');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
       await onSubmit({
         amount: parseFloat(amount),
         category,
-        description,
+        description: description.trim(),
         date,
+        account_id: accountId,
       });
 
       if (!isEditing) {
@@ -74,6 +95,7 @@ export default function ExpenseForm({
         setCategory('Food');
         setDescription('');
         setDate(new Date().toISOString().split('T')[0]);
+        setAccountId(defaultAccount);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save expense');
@@ -102,6 +124,7 @@ export default function ExpenseForm({
         placeholder="0.00"
         prefix="$"
         required
+        autoFocus
       />
 
       <Select
@@ -112,6 +135,19 @@ export default function ExpenseForm({
         options={categoryOptions}
         required
       />
+
+      {showAccountField && (
+        <Select
+          label="Account"
+          id="account"
+          value={accountId}
+          onChange={(e) => setAccountId(e.target.value)}
+          options={activeAccounts.map((acc) => ({
+            value: acc.id,
+            label: acc.name,
+          }))}
+        />
+      )}
 
       <Input
         label="Date"
