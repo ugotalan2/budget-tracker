@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -11,7 +11,7 @@ import {
 import ExpenseForm from '@/components/expenses/ExpenseForm';
 import { formatCurrency } from '@/lib/calculations';
 import { createClient } from '@/lib/supabase/client';
-import { CATEGORIES, Expense, Account } from '@/lib/types';
+import { Expense, Account } from '@/lib/types';
 import { exportExpensesToCSV } from '@/lib/exportUtils';
 import EditExpenseModal from '@/components/expenses/EditExpenseModal';
 import ExpenseActionsMenu from '@/components/expenses/ExpenseActionsMenu';
@@ -20,6 +20,7 @@ import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import Select from '@/components/ui/Select';
 import IconButton from '@/components/ui/IconButton';
 import SearchInput from '@/components/ui/SearchInput';
+import { useCategories } from '@/lib/hooks/useCategories';
 import { useAuth } from '@clerk/nextjs';
 import {
   generateMonthOptions,
@@ -32,6 +33,7 @@ import {
 export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const { categoriesHierarchy } = useCategories();
   const [isLoading, setIsLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
@@ -63,6 +65,7 @@ export default function ExpensesPage() {
   // fetch expenses
   const fetchExpenses = useCallback(
     async (reset = false) => {
+      if (!userId) return;
       setIsLoading(true);
 
       const currentOffset = reset ? 0 : offsetRef.current;
@@ -71,7 +74,7 @@ export default function ExpensesPage() {
 
       // Apply category filter
       if (categoryFilter !== 'All') {
-        query = query.eq('category', categoryFilter);
+        query = query.eq('category_id', categoryFilter);
       }
 
       if (debouncedSearch.trim()) {
@@ -133,14 +136,16 @@ export default function ExpensesPage() {
 
   // Fetch summary stats for current month
   const fetchSummary = useCallback(async () => {
+    if (!userId) return;
+
     const { start, end } = getMonthBoundariesFromString(summaryMonth);
 
     const { data, error } = await supabase
       .from('expenses')
-      .select('amount, category')
+      .select('amount, category_id')
+      .eq('user_id', userId)
       .gte('date', start)
-      .lte('date', end)
-      .eq('user_id', userId);
+      .lte('date', end);
 
     if (!error && data) {
       const totalSpent = data.reduce(
@@ -215,7 +220,13 @@ export default function ExpensesPage() {
     const parts: string[] = [];
 
     if (categoryFilter !== 'All') {
-      parts.push(`${categoryFilter} expenses`);
+      const selectedCategory = categoriesHierarchy
+        .flatMap((p) => [p, ...(p.children || [])])
+        .find((c) => c.id === categoryFilter);
+
+      if (selectedCategory) {
+        parts.push(`${selectedCategory.name} expenses`);
+      }
     }
 
     if (debouncedSearch) {
@@ -225,10 +236,32 @@ export default function ExpensesPage() {
     return parts.length > 0 ? parts.join(' ') : 'All expenses';
   })();
 
+  // Create a category lookup map
+  const categoryMap = useMemo(() => {
+    const map = new Map<
+      string,
+      { name: string; color: string; parent?: string }
+    >();
+
+    categoriesHierarchy.forEach((parent) => {
+      map.set(parent.id, { name: parent.name, color: parent.color });
+
+      parent.children?.forEach((child) => {
+        map.set(child.id, {
+          name: child.name,
+          color: child.color,
+          parent: parent.name,
+        });
+      });
+    });
+
+    return map;
+  }, [categoriesHierarchy]);
+
   // Add expense
   const handleAddExpense = async (expenseData: {
     amount: number;
-    category: string;
+    category_id: string;
     description: string;
     date: string;
   }) => {
@@ -278,7 +311,7 @@ export default function ExpensesPage() {
     id: string,
     expenseData: {
       amount: number;
-      category: string;
+      category_id: string;
       description: string;
       date: string;
       account_id: string;
@@ -473,15 +506,7 @@ export default function ExpensesPage() {
                       By Category
                     </h3>
                     <button
-                      onClick={() => {
-                        // Export all expenses for this month
-                        const monthExpenses = expenses.filter((exp) =>
-                          exp.date.startsWith(summaryMonth)
-                        );
-                        exportExpensesToCSV(monthExpenses, {
-                          month: summaryMonth,
-                        });
-                      }}
+                      onClick={handleExportMonth}
                       className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20"
                     >
                       <Download className="h-3 w-3" />
@@ -490,19 +515,28 @@ export default function ExpensesPage() {
                   </div>
                   {Object.entries(summaryStats.byCategory)
                     .sort(([, a], [, b]) => b - a)
-                    .map(([category, amount]) => (
-                      <div
-                        key={category}
-                        className="group flex items-center justify-between rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-gray-50 dark:hover:bg-gray-700"
-                      >
-                        <span className="font-medium text-gray-700 transition-colors group-hover:text-gray-900 dark:text-gray-300 dark:group-hover:text-white">
-                          {category}
-                        </span>
-                        <span className="font-semibold text-gray-900 dark:text-white">
-                          {formatCurrency(amount)}
-                        </span>
-                      </div>
-                    ))}
+                    .map(([categoryId, amount]) => {
+                      const categoryInfo = categoryMap.get(categoryId);
+                      const displayName = categoryInfo
+                        ? categoryInfo.parent
+                          ? `${categoryInfo.parent} → ${categoryInfo.name}`
+                          : categoryInfo.name
+                        : 'Uncategorized';
+
+                      return (
+                        <div
+                          key={categoryId}
+                          className="group flex items-center justify-between rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-gray-50 dark:hover:bg-gray-700"
+                        >
+                          <span className="font-medium text-gray-700 transition-colors group-hover:text-gray-900 dark:text-gray-300 dark:group-hover:text-white">
+                            {displayName}
+                          </span>
+                          <span className="font-semibold text-gray-900 dark:text-white">
+                            {formatCurrency(amount)}
+                          </span>
+                        </div>
+                      );
+                    })}
                 </div>
               )}
             </div>
@@ -551,16 +585,20 @@ export default function ExpensesPage() {
                       }
                       title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
                     />
+                    {/* Category Filter Dropdown */}
                     <div className="w-44">
                       <Select
                         value={categoryFilter}
                         onChange={(e) => setCategoryFilter(e.target.value)}
                         options={[
                           { value: 'All', label: 'All Categories' },
-                          ...CATEGORIES.map((cat) => ({
-                            value: cat,
-                            label: cat,
-                          })),
+                          ...categoriesHierarchy.flatMap((parent) => [
+                            { value: parent.id, label: parent.name },
+                            ...(parent.children || []).map((child) => ({
+                              value: child.id,
+                              label: `  ↳ ${child.name}`,
+                            })),
+                          ]),
                         ]}
                       />
                     </div>
@@ -598,7 +636,14 @@ export default function ExpensesPage() {
                     ) : categoryFilter === 'All' ? (
                       'No expenses yet. Add your first expense to get started!'
                     ) : (
-                      `No ${categoryFilter} expenses found.`
+                      <>
+                        No{' '}
+                        {categoriesHierarchy
+                          .flatMap((p) => [p, ...(p.children || [])])
+                          .find((c) => c.id === categoryFilter)?.name ||
+                          ''}{' '}
+                        expenses found.
+                      </>
                     )}
                   </p>
                 </div>
@@ -614,54 +659,66 @@ export default function ExpensesPage() {
                   )}
 
                   <div className="space-y-4">
-                    {expenses.map((expense) => (
-                      <div
-                        key={expense.id}
-                        className="flex items-center justify-between border-b border-gray-200 pb-4 last:border-0 dark:border-gray-700"
-                      >
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3">
-                            <span className="rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
-                              {expense.category}
-                            </span>
-                            <span className="text-lg font-semibold text-gray-900 dark:text-white">
-                              {formatCurrency(expense.amount)}
-                            </span>
-                          </div>
-                          {expense.description && (
-                            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                              {expense.description}
-                            </p>
-                          )}
-                          <p className="mt-1 text-sm text-gray-500 dark:text-gray-500">
-                            {new Date(expense.date).toLocaleDateString(
-                              'en-US',
-                              {
-                                year: 'numeric',
-                                month: 'long',
-                                day: 'numeric',
-                              }
-                            )}
-                          </p>
-                        </div>
-                        <div className="ml-4 flex gap-2">
-                          <div
-                            key={expense.id}
-                            className="flex items-center justify-between border-b border-gray-200 pb-4 last:border-0 dark:border-gray-700"
-                          >
-                            <div className="flex-1">
-                              {/* ... expense details ... */}
-                            </div>
+                    {expenses.map((expense) => {
+                      const categoryInfo = categoryMap.get(
+                        expense.category_id || ''
+                      );
 
-                            {/* Three-dot menu */}
+                      return (
+                        <div
+                          key={expense.id}
+                          className="flex items-center justify-between border-b border-gray-200 pb-4 last:border-0 dark:border-gray-700"
+                        >
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3">
+                              {categoryInfo ? (
+                                <>
+                                  <span
+                                    className="rounded-full px-3 py-1 text-sm font-medium"
+                                    style={{
+                                      backgroundColor: `${categoryInfo.color}20`,
+                                      color: categoryInfo.color,
+                                    }}
+                                  >
+                                    {categoryInfo.parent
+                                      ? `${categoryInfo.parent} → ${categoryInfo.name}` // Show hierarchy
+                                      : categoryInfo.name}
+                                  </span>
+                                </>
+                              ) : (
+                                <span className="rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+                                  Uncategorized
+                                </span>
+                              )}
+                              <span className="text-lg font-semibold text-gray-900 dark:text-white">
+                                {formatCurrency(expense.amount)}
+                              </span>
+                            </div>
+                            {expense.description && (
+                              <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                                {expense.description}
+                              </p>
+                            )}
+                            <p className="mt-1 text-sm text-gray-500 dark:text-gray-500">
+                              {new Date(expense.date).toLocaleDateString(
+                                'en-US',
+                                {
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric',
+                                }
+                              )}
+                            </p>
+                          </div>
+                          <div className="ml-4 flex gap-2">
                             <ExpenseItemMenu
                               onEdit={() => setEditingExpense(expense)}
                               onDelete={() => handleDelete(expense.id)}
                             />
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {/* Load more indicator */}

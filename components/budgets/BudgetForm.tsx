@@ -1,20 +1,20 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { CATEGORIES } from '@/lib/types';
 import { generateMonthOptions } from '@/lib/dateUtils';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
+import { useCategories } from '@/lib/hooks/useCategories';
 
 type BudgetFormProps = {
   onSubmit: (budget: {
-    category: string;
+    category_id: string;
     limit_amount: number;
     month: string;
   }) => Promise<void>;
   initialData?: {
-    category: string;
+    category_id: string;
     limit_amount: number | '';
     month: string;
   };
@@ -32,12 +32,9 @@ export default function BudgetForm({
   onMonthChange,
   defaultMonth,
 }: BudgetFormProps) {
-  const availableCategories = isEditing
-    ? CATEGORIES
-    : CATEGORIES.filter((category) => !existingCategories.includes(category));
-
-  const [category, setCategory] = useState<string>(
-    initialData?.category || availableCategories[0] || 'Food'
+  const { categoriesHierarchy, isLoading: categoriesLoading } = useCategories();
+  const [categoryId, setCategoryId] = useState<string>(
+    initialData?.category_id || ''
   );
   const [limitAmount, setLimitAmount] = useState(
     initialData?.limit_amount ? initialData.limit_amount.toString() : ''
@@ -45,15 +42,19 @@ export default function BudgetForm({
   const [month, setMonth] = useState(
     initialData?.month || defaultMonth || new Date().toISOString().slice(0, 7)
   );
-
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const amountInputRef = useRef<HTMLInputElement>(null);
 
-  const categoryOptions = availableCategories.map((cat) => ({
-    value: cat,
-    label: cat,
-  }));
+  // Build available categories (not already budgeted)
+  const availableCategories = categoriesHierarchy
+    .flatMap((parent) => [parent, ...(parent.children || [])])
+    .filter(
+      (cat) =>
+        !existingCategories.includes(cat.id) ||
+        cat.id === initialData?.category_id
+    );
+
+  const amountInputRef = useRef<HTMLInputElement>(null);
 
   const monthOptions = generateMonthOptions().map((opt) => ({
     value: opt.value,
@@ -63,17 +64,19 @@ export default function BudgetForm({
   // Update category when available categories change
   useEffect(() => {
     if (!isEditing && !initialData && availableCategories.length > 0) {
-      const categoryExists = availableCategories.some((c) => c === category);
+      const categoryExists = availableCategories.some(
+        (c) => c.id === categoryId
+      );
       if (categoryExists) {
-        setCategory(availableCategories[0]);
+        setCategoryId(availableCategories[0].id);
       }
     }
-  }, [availableCategories, isEditing, initialData, category]);
+  }, [availableCategories, isEditing, initialData, categoryId]);
 
   // Update form when editing
   useEffect(() => {
     if (initialData && isEditing) {
-      setCategory(initialData.category);
+      setCategoryId(initialData.category_id);
       setLimitAmount(
         initialData.limit_amount ? initialData.limit_amount.toString() : ''
       );
@@ -90,8 +93,14 @@ export default function BudgetForm({
     e.preventDefault();
     setError('');
 
-    if (!limitAmount || parseFloat(limitAmount) <= 0) {
+    const parsedAmount = parseFloat(limitAmount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
       setError('Please enter a valid budget amount');
+      return;
+    }
+
+    if (!categoryId) {
+      setError('Please select a category');
       return;
     }
 
@@ -99,7 +108,7 @@ export default function BudgetForm({
 
     try {
       await onSubmit({
-        category,
+        category_id: categoryId,
         limit_amount: parseFloat(limitAmount),
         month: month + '-01',
       });
@@ -107,6 +116,9 @@ export default function BudgetForm({
       if (!isEditing) {
         setLimitAmount('');
         setMonth(new Date().toISOString().slice(0, 7));
+        if (availableCategories.length > 1) {
+          setCategoryId(availableCategories[1].id);
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save budget');
@@ -114,6 +126,23 @@ export default function BudgetForm({
       setIsSubmitting(false);
     }
   };
+
+  if (categoriesLoading) {
+    return <div className="text-sm text-gray-500">Loading categories...</div>;
+  }
+
+  // Build hierarchical options
+  const categoryOptions = availableCategories.map((cat) => {
+    // Check if it's a child by seeing if any parent has this as a child
+    const isChild = categoriesHierarchy.some((p) =>
+      p.children?.some((c) => c.id === cat.id)
+    );
+
+    return {
+      value: cat.id,
+      label: isChild ? `  ↳ ${cat.name}` : cat.name,
+    };
+  });
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -126,8 +155,8 @@ export default function BudgetForm({
       <Select
         label="Category"
         id="category"
-        value={category}
-        onChange={(e) => setCategory(e.target.value)}
+        value={categoryId}
+        onChange={(e) => setCategoryId(e.target.value)}
         options={categoryOptions}
         disabled={isEditing}
         hint={

@@ -10,7 +10,7 @@ type EditExpenseModalProps = {
     id: string,
     data: {
       amount: number;
-      category: string;
+      category_id: string;
       description: string;
       date: string;
       account_id: string;
@@ -27,7 +27,7 @@ export default function EditExpenseModal({
 }: EditExpenseModalProps) {
   const handleSubmit = async (expenseData: {
     amount: number;
-    category: string;
+    category_id: string;
     description: string;
     date: string;
     account_id: string;
@@ -60,7 +60,7 @@ export default function EditExpenseModal({
           accounts={accounts}
           initialData={{
             amount: expense.amount,
-            category: expense.category,
+            category_id: expense.category_id || '',
             description: expense.description || '',
             date: expense.date,
             account_id: expense.account_id || '',

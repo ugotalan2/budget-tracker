@@ -2,7 +2,9 @@ import { formatCurrency } from '@/lib/calculations';
 import BudgetMenu from './BudgetMenu';
 
 type BudgetProgressProps = {
-  category: string;
+  categoryId: string;
+  categoryName: string;
+  categoryColor?: string;
   limitAmount: number;
   spent: number;
   percentage: number;
@@ -12,7 +14,8 @@ type BudgetProgressProps = {
 };
 
 export default function BudgetProgress({
-  category,
+  categoryName,
+  categoryColor = '#3B82F6',
   limitAmount,
   spent,
   percentage,
@@ -45,14 +48,20 @@ export default function BudgetProgress({
       )}
 
       <div className="mb-2 flex items-center justify-between pr-10">
-        {/* Added pr-10 to make room for menu */}
-        <div>
-          <h3 className="font-medium text-gray-900 dark:text-white">
-            {category}
-          </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Budget: {formatCurrency(limitAmount)}
-          </p>
+        <div className="flex items-center gap-3">
+          {/* Add color indicator */}
+          <div
+            className="h-8 w-8 rounded-lg flex-shrink-0"
+            style={{ backgroundColor: categoryColor }}
+          />
+          <div>
+            <h3 className="font-medium text-gray-900 dark:text-white">
+              {categoryName}
+            </h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Budget: {formatCurrency(limitAmount)}
+            </p>
+          </div>
         </div>
         <div className="text-right">
           <p className={`font-semibold ${getTextColor()}`}>

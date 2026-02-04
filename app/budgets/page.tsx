@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { type Budget, type Expense } from '@/lib/types';
@@ -10,6 +10,7 @@ import { formatCurrency } from '@/lib/calculations';
 import Select from '@/components/ui/Select';
 import IconButton from '@/components/ui/IconButton';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import { useCategories } from '@/lib/hooks/useCategories';
 import { useAuth } from '@clerk/nextjs';
 import {
   generateMonthOptions,
@@ -20,6 +21,7 @@ import {
 export default function BudgetsPage() {
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const { categoriesHierarchy } = useCategories();
   const [isLoading, setIsLoading] = useState(true);
   const [isNavigating, setIsNavigating] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -35,6 +37,28 @@ export default function BudgetsPage() {
   const { userId } = useAuth();
   const supabase = createClient();
   const formRef = useRef<HTMLDivElement>(null);
+
+  // Create category lookup map
+  const categoryMap = useMemo(() => {
+    const map = new Map<
+      string,
+      { name: string; color: string; parent?: string }
+    >();
+
+    categoriesHierarchy.forEach((parent) => {
+      map.set(parent.id, { name: parent.name, color: parent.color });
+
+      parent.children?.forEach((child) => {
+        map.set(child.id, {
+          name: child.name,
+          color: child.color,
+          parent: parent.name,
+        });
+      });
+    });
+
+    return map;
+  }, [categoriesHierarchy]);
 
   // Fetch budgets for selected month
   const fetchBudgets = async (showLoader = true) => {
@@ -71,13 +95,15 @@ export default function BudgetsPage() {
 
     const { data } = await supabase
       .from('budgets')
-      .select('category')
+      .select('category_id')
+      .eq('user_id', userId)
       .gte('month', monthStart)
-      .lt('month', monthEnd)
-      .eq('user_id', userId);
+      .lt('month', monthEnd);
 
     setFormExistingCategories(
-      data?.map((budget: Budget) => budget.category as string) || []
+      (data
+        ?.map((budget: Budget) => budget.category_id)
+        .filter(Boolean) as string[]) || []
     );
   };
 
@@ -134,15 +160,15 @@ export default function BudgetsPage() {
   }, [selectedMonth]);
 
   // Calculate spending for each category
-  const getSpendingForCategory = (category: string) => {
+  const getSpendingForCategory = (categoryId: string) => {
     return expenses
-      .filter((expense) => expense.category === category)
+      .filter((expense) => expense.category_id === categoryId)
       .reduce((sum, expense) => sum + expense.amount, 0);
   };
 
   // Calculate budget status
   const getBudgetStatus = (budget: Budget) => {
-    const spent = getSpendingForCategory(budget.category);
+    const spent = getSpendingForCategory(budget.category_id || '');
     const remaining = budget.limit_amount - spent;
     const percentage = (spent / budget.limit_amount) * 100;
     const isOverBudget = spent > budget.limit_amount;
@@ -177,7 +203,7 @@ export default function BudgetsPage() {
 
   // Add budget
   const handleAddBudget = async (budgetData: {
-    category: string;
+    category_id: string;
     limit_amount: number;
     month: string;
   }) => {
@@ -185,9 +211,15 @@ export default function BudgetsPage() {
 
     const targetMonth = budgetData.month.slice(0, 7);
 
-    if (formExistingCategories.includes(budgetData.category)) {
+    if (formExistingCategories.includes(budgetData.category_id)) {
+      const categoryName =
+        categoriesHierarchy
+          .flatMap((p) => [p, ...(p.children || [])])
+          .find((c) => c.id === budgetData.category_id)?.name ||
+        'this category';
+
       alert(
-        `You already have a ${budgetData.category} budget for ${formatMonthYear(targetMonth)}. Delete it first or click Edit.`
+        `You already have a ${categoryName} budget for ${formatMonthYear(targetMonth)}. Delete it first or click Edit.`
       );
       return;
     }
@@ -219,7 +251,7 @@ export default function BudgetsPage() {
   const handleUpdateBudget = async (
     id: string,
     budgetData: {
-      category: string;
+      category_id: string;
       limit_amount: number;
       month: string;
     }
@@ -346,7 +378,11 @@ export default function BudgetsPage() {
 
               {editingBudget && (
                 <div className="mb-4 rounded-md bg-blue-50 p-3 text-sm text-blue-800 dark:bg-blue-900/20 dark:text-blue-300">
-                  Editing budget for <strong>{editingBudget.category}</strong>
+                  Editing budget for{' '}
+                  <strong>
+                    {categoryMap.get(editingBudget.category_id || '')?.name ||
+                      'Unknown Category'}
+                  </strong>
                   <button
                     onClick={() => setEditingBudget(null)}
                     className="ml-2 font-medium underline"
@@ -366,7 +402,7 @@ export default function BudgetsPage() {
                 initialData={
                   editingBudget
                     ? {
-                        category: editingBudget.category,
+                        category_id: editingBudget.category_id || '',
                         limit_amount: editingBudget.limit_amount,
                         month: editingBudget.month.slice(0, 7),
                       }
@@ -532,13 +568,23 @@ export default function BudgetsPage() {
                 <div className="space-y-">
                   {budgets.map((budget) => {
                     const status = getBudgetStatus(budget);
+                    const categoryInfo = categoryMap.get(
+                      budget.category_id || ''
+                    );
+                    const categoryName = categoryInfo
+                      ? categoryInfo.parent
+                        ? `${categoryInfo.parent} → ${categoryInfo.name}`
+                        : categoryInfo.name
+                      : 'Uncategorized';
+
                     return (
                       <div
                         key={budget.id}
                         className="relative rounded-lg border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow dark:border-gray-700"
                       >
                         <BudgetProgress
-                          category={budget.category}
+                          categoryId={budget.category_id || ''}
+                          categoryName={categoryName}
                           limitAmount={budget.limit_amount}
                           spent={status.spent}
                           percentage={status.percentage}

@@ -2,22 +2,22 @@
 
 import { useState } from 'react';
 import { type Account } from '@/lib/types';
-import { CATEGORIES } from '@/lib/types';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
+import { useCategories } from '@/lib/hooks/useCategories';
 
 type ExpenseFormProps = {
   onSubmit: (expense: {
     amount: number;
-    category: string;
+    category_id: string;
     description: string;
     date: string;
     account_id: string;
   }) => Promise<void>;
   initialData?: {
     amount: number;
-    category: string;
+    category_id: string;
     description: string;
     date: string;
     account_id: string;
@@ -32,6 +32,7 @@ export default function ExpenseForm({
   isEditing = false,
   accounts,
 }: ExpenseFormProps) {
+  const { categoriesHierarchy, isLoading: categoriesLoading } = useCategories();
   const activeAccounts = accounts.filter((a) => a.is_active);
   const showAccountField = activeAccounts.length > 1;
   const defaultAccount =
@@ -40,7 +41,7 @@ export default function ExpenseForm({
       : activeAccounts.find((a) => a.is_primary)?.id || '';
 
   const [amount, setAmount] = useState(initialData?.amount.toString() || '');
-  const [category, setCategory] = useState(initialData?.category || 'Food');
+  const [categoryId, setCategoryId] = useState(initialData?.category_id || '');
   const [description, setDescription] = useState(
     initialData?.description || ''
   );
@@ -53,18 +54,18 @@ export default function ExpenseForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const categoryOptions = CATEGORIES.map((cat) => ({
-    value: cat,
-    label: cat,
-  }));
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    if (!amount || parseFloat(amount) <= 0) {
+    const parsedAmount = parseFloat(amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
       setError('Please enter a valid amount.');
       return;
+    }
+
+    if (!categoryId) {
+      setError('Please select a category');
     }
 
     if (!date) {
@@ -82,7 +83,7 @@ export default function ExpenseForm({
     try {
       await onSubmit({
         amount: parseFloat(amount),
-        category,
+        category_id: categoryId,
         description: description.trim(),
         date,
         account_id: accountId,
@@ -90,7 +91,7 @@ export default function ExpenseForm({
 
       if (!isEditing) {
         setAmount('');
-        setCategory('Food');
+        setCategoryId('');
         setDescription('');
         setDate(new Date().toISOString().split('T')[0]);
         setAccountId(defaultAccount);
@@ -101,6 +102,22 @@ export default function ExpenseForm({
       setIsSubmitting(false);
     }
   };
+
+  // Build hierarchical options for select
+  const categoryOptions = [
+    { value: '', label: 'Select category...' },
+    ...categoriesHierarchy.flatMap((parent) => [
+      { value: parent.id, label: parent.name },
+      ...(parent.children || []).map((child) => ({
+        value: child.id,
+        label: `  ↳ ${child.name}`, // Indent children
+      })),
+    ]),
+  ];
+
+  if (categoriesLoading) {
+    return <div className="text-sm text-gray-500">Loading categories...</div>;
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -128,8 +145,8 @@ export default function ExpenseForm({
       <Select
         label="Category"
         id="category"
-        value={category}
-        onChange={(e) => setCategory(e.target.value)}
+        value={categoryId}
+        onChange={(e) => setCategoryId(e.target.value)}
         options={categoryOptions}
         required
       />

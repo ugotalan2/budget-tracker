@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '@clerk/nextjs';
 import { createClient } from '@/lib/supabase/client';
@@ -11,6 +11,7 @@ import SpendingTrendChart from '@/components/dashboard/SpendingTrendChart';
 import BudgetComparisonChart from '@/components/dashboard/BudgetComparisonChart';
 import Select from '@/components/ui/Select';
 import IconButton from '@/components/ui/IconButton';
+import { useCategories } from '@/lib/hooks/useCategories';
 import {
   generateMonthOptions,
   getPreviousMonth,
@@ -20,6 +21,7 @@ import {
 export default function DashboardPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
+  const { categoriesHierarchy } = useCategories();
   const [isLoading, setIsLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(
     new Date().toISOString().slice(0, 7)
@@ -28,6 +30,20 @@ export default function DashboardPage() {
 
   const { userId } = useAuth();
   const supabase = createClient();
+
+  const categoryMap = useMemo(() => {
+    const map = new Map<string, { name: string; color: string }>();
+
+    categoriesHierarchy.forEach((parent) => {
+      map.set(parent.id, { name: parent.name, color: parent.color });
+
+      parent.children?.forEach((child) => {
+        map.set(child.id, { name: child.name, color: child.color });
+      });
+    });
+
+    return map;
+  }, [categoriesHierarchy]);
 
   // Fetch data for selected month
   const fetchData = async () => {
@@ -49,11 +65,11 @@ export default function DashboardPage() {
     const [expensesRes, budgetsRes, prevExpensesRes] = await Promise.all([
       supabase
         .from('expenses')
-        .select('*')
+        .select('amount, category_id, date, description')
+        .eq('user_id', userId)
         .gte('date', monthStart)
         .lt('date', monthEnd)
-        .order('date', { ascending: false })
-        .eq('user_id', userId),
+        .order('date', { ascending: false }),
       supabase
         .from('budgets')
         .select('*')
@@ -100,17 +116,22 @@ export default function DashboardPage() {
       : 0;
   const isIncreased = totalSpent > prevMonthTotal;
 
-  // Prepare data for charts
-  const categoryChartData = Object.entries(
-    expenses.reduce(
-      (categories, expense) => {
-        categories[expense.category] =
-          (categories[expense.category] || 0) + expense.amount;
-        return categories;
-      },
-      {} as Record<string, number>
-    )
-  ).map(([category, amount]) => ({ category, amount }));
+  // Prepare data for charts - group by category_id
+  const categoryTotals = expenses.reduce(
+    (acc: Record<string, number>, expense) => {
+      const catId = expense.category_id || 'uncategorized';
+      acc[catId] = (acc[catId] || 0) + expense.amount;
+      return acc;
+    },
+    {}
+  );
+
+  const categoryChartData = Object.entries(categoryTotals)
+    .map(([categoryId, amount]) => ({
+      category: categoryMap.get(categoryId)?.name || 'Uncategorized',
+      amount: amount as number,
+    }))
+    .sort((a, b) => b.amount - a.amount);
 
   // Spending trend by day
   const spendingByDay = expenses.reduce(
@@ -128,12 +149,13 @@ export default function DashboardPage() {
 
   // Budget comparison data
   const budgetComparisonData = budgets.map((budget) => {
+    const categoryInfo = categoryMap.get(budget.category_id || '');
     const spent = expenses
-      .filter((expense) => expense.category === budget.category)
+      .filter((expense) => expense.category_id === budget.category_id) // Changed
       .reduce((sum, expense) => sum + expense.amount, 0);
 
     return {
-      category: budget.category,
+      category: categoryInfo?.name || 'Unknown', // Changed to use name
       budget: budget.limit_amount,
       spent,
     };
@@ -597,29 +619,33 @@ export default function DashboardPage() {
             Recent Transactions
           </h2>
           <div className="space-y-3">
-            {expenses.slice(0, 5).map((expense) => (
-              <div
-                key={expense.id}
-                className="flex items-center justify-between border-b border-gray-100 pb-3 last:border-0 dark:border-gray-800"
-              >
-                <div>
-                  <p className="font-medium text-gray-900 dark:text-white">
-                    {expense.description || expense.category}
-                  </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {new Date(expense.date).toLocaleDateString()}
-                  </p>
+            {expenses.slice(0, 5).map((expense) => {
+              const categoryInfo = categoryMap.get(expense.category_id || '');
+
+              return (
+                <div
+                  key={expense.id}
+                  className="flex items-center justify-between border-b border-gray-100 pb-3 last:border-0 dark:border-gray-800"
+                >
+                  <div>
+                    <p className="font-medium text-gray-900 dark:text-white">
+                      {expense.description || categoryInfo?.name || 'Expense'}
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {new Date(expense.date).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold text-gray-900 dark:text-white">
+                      {formatCurrency(expense.amount)}
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {categoryInfo?.name || 'Uncategorized'}
+                    </p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-semibold text-gray-900 dark:text-white">
-                    {formatCurrency(expense.amount)}
-                  </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {expense.category}
-                  </p>
-                </div>
-              </div>
-            ))}
+              );
+            })}
             {expenses.length === 0 && (
               <p className="text-center text-gray-500 dark:text-gray-400">
                 No transactions yet
