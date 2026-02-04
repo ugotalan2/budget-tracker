@@ -2,7 +2,6 @@ import { formatCurrency } from '@/lib/calculations';
 import BudgetMenu from './BudgetMenu';
 
 type BudgetProgressProps = {
-  categoryId: string;
   categoryName: string;
   categoryColor?: string;
   limitAmount: number;
@@ -47,15 +46,16 @@ export default function BudgetProgress({
         </div>
       )}
 
-      <div className="mb-2 flex items-center justify-between pr-10">
-        <div className="flex items-center gap-3">
-          {/* Add color indicator */}
+      {/* Single row layout */}
+      <div className="flex items-center gap-4 mb-3 pr-8">
+        {/* Color + Name */}
+        <div className="flex items-center gap-3 min-w-0 flex-1">
           <div
             className="h-8 w-8 rounded-lg flex-shrink-0"
             style={{ backgroundColor: categoryColor }}
           />
-          <div>
-            <h3 className="font-medium text-gray-900 dark:text-white">
+          <div className="min-w-0 flex-1">
+            <h3 className="font-medium text-gray-900 dark:text-white truncate">
               {categoryName}
             </h3>
             <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -63,7 +63,9 @@ export default function BudgetProgress({
             </p>
           </div>
         </div>
-        <div className="text-right">
+
+        {/* Spending info */}
+        <div className="text-right flex-shrink-0">
           <p className={`font-semibold ${getTextColor()}`}>
             {formatCurrency(spent)}
           </p>
@@ -79,6 +81,16 @@ export default function BudgetProgress({
             )}
           </p>
         </div>
+
+        {/* Percentage - moved to the right */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className={`text-lg font-semibold ${getTextColor()}`}>
+            {percentage.toFixed(0)}%
+          </span>
+          {isOverBudget && (
+            <span className="text-red-600 dark:text-red-500 text-sm">⚠️</span>
+          )}
+        </div>
       </div>
 
       {/* Progress Bar */}
@@ -87,15 +99,6 @@ export default function BudgetProgress({
           className={`h-full transition-all duration-300 ${getProgressColor()}`}
           style={{ width: `${Math.min(percentage, 100)}%` }}
         />
-      </div>
-
-      <div className="mt-2 flex justify-between text-xs">
-        <span className={getTextColor()}>{percentage.toFixed(1)}% used</span>
-        {isOverBudget && (
-          <span className="font-medium text-red-600 dark:text-red-500">
-            ⚠️ Over Budget
-          </span>
-        )}
       </div>
     </div>
   );

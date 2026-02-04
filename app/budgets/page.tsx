@@ -3,19 +3,21 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { type Budget, type Expense } from '@/lib/types';
+import { type Budget, type Expense, UserPreferences } from '@/lib/types';
 import BudgetForm from '@/components/budgets/BudgetForm';
-import BudgetProgress from '@/components/budgets/BudgetProgress';
 import { formatCurrency } from '@/lib/calculations';
 import Select from '@/components/ui/Select';
 import IconButton from '@/components/ui/IconButton';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { useCategories } from '@/lib/hooks/useCategories';
+import BudgetHierarchy from '@/components/budgets/BudgetHierarchy';
 import { useAuth } from '@clerk/nextjs';
+import { useToast } from '@/lib/contexts/ToastContext';
 import {
   generateMonthOptions,
   getPreviousMonth,
   getNextMonth,
+  getMonthBoundariesFromString,
 } from '@/lib/dateUtils';
 
 export default function BudgetsPage() {
@@ -33,10 +35,15 @@ export default function BudgetsPage() {
     string[]
   >([]);
   const [formMonth, setFormMonth] = useState(selectedMonth);
-
   const { userId } = useAuth();
+  const [userPreferences, setUserPreferences] =
+    useState<UserPreferences | null>({
+      auto_adjust_parent_budgets: true,
+      user_id: userId || '',
+    } as UserPreferences);
   const supabase = createClient();
   const formRef = useRef<HTMLDivElement>(null);
+  const { showToast } = useToast();
 
   // Create category lookup map
   const categoryMap = useMemo(() => {
@@ -60,23 +67,42 @@ export default function BudgetsPage() {
     return map;
   }, [categoriesHierarchy]);
 
+  // Fetch preferences
+  useEffect(() => {
+    const fetchPreferences = async () => {
+      if (!userId) return;
+
+      const { data } = await supabase
+        .from('user_preferences')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      setUserPreferences(
+        data ||
+          ({
+            auto_adjust_parent_budgets: true,
+            user_id: userId,
+          } as UserPreferences)
+      );
+    };
+
+    fetchPreferences();
+  }, [userId, supabase]);
+
   // Fetch budgets for selected month
   const fetchBudgets = async (showLoader = true) => {
+    if (!userId) return;
+
     if (showLoader) setIsLoading(true);
 
-    const monthStart = selectedMonth + '-01';
-
-    // Get first day of NEXT month for proper range
-    const nextMonth = new Date(selectedMonth + '-01');
-    nextMonth.setMonth(nextMonth.getMonth() + 1);
-    const monthEnd = nextMonth.toISOString().slice(0, 10);
+    const { start, end } = getMonthBoundariesFromString(selectedMonth);
 
     const { data, error } = await supabase
       .from('budgets')
       .select('*')
-      .gte('month', monthStart)
-      .lt('month', monthEnd)
-      .order('category')
+      .gte('month', start)
+      .lt('month', end)
       .eq('user_id', userId);
 
     if (!error && data) {
@@ -88,17 +114,14 @@ export default function BudgetsPage() {
 
   // Fetch existing categories for a specific month (for the form)
   const fetchExistingCategoriesForMonth = async (month: string) => {
-    const monthStart = month + '-01';
-    const nextMonth = new Date(month + '-01');
-    nextMonth.setMonth(nextMonth.getMonth() + 1);
-    const monthEnd = nextMonth.toISOString().slice(0, 10);
+    const { start, end } = getMonthBoundariesFromString(month);
 
     const { data } = await supabase
       .from('budgets')
       .select('category_id')
       .eq('user_id', userId)
-      .gte('month', monthStart)
-      .lt('month', monthEnd);
+      .gte('month', start)
+      .lt('month', end);
 
     setFormExistingCategories(
       (data
@@ -124,16 +147,15 @@ export default function BudgetsPage() {
 
   // Fetch expenses for selected month
   const fetchExpenses = async () => {
-    const monthStart = selectedMonth + '-01';
-    const nextMonth = new Date(selectedMonth + '-01');
-    nextMonth.setMonth(nextMonth.getMonth() + 1);
-    const monthEnd = nextMonth.toISOString().slice(0, 10);
+    if (!userId) return;
+
+    const { start, end } = getMonthBoundariesFromString(selectedMonth);
 
     const { data, error } = await supabase
       .from('expenses')
       .select('*')
-      .gte('date', monthStart)
-      .lt('date', monthEnd)
+      .gte('date', start)
+      .lt('date', end)
       .eq('user_id', userId);
 
     if (!error && data) {
@@ -155,20 +177,46 @@ export default function BudgetsPage() {
   };
 
   useEffect(() => {
+    if (!userId) return;
+
     fetchData(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMonth]);
 
-  // Calculate spending for each category
-  const getSpendingForCategory = (categoryId: string) => {
-    return expenses
+  // Calculate spending for each category (including children for parents)
+  const getSpendingForCategory = (
+    categoryId: string,
+    includeChildren = false
+  ) => {
+    let spending = expenses
       .filter((expense) => expense.category_id === categoryId)
       .reduce((sum, expense) => sum + expense.amount, 0);
+
+    // If this is a parent category, add children's spending
+    if (includeChildren) {
+      const category = categoriesHierarchy.find((p) => p.id === categoryId);
+      if (category?.children) {
+        category.children.forEach((child) => {
+          spending += expenses
+            .filter((expense) => expense.category_id === child.id)
+            .reduce((sum, expense) => sum + expense.amount, 0);
+        });
+      }
+    }
+
+    return spending;
   };
 
   // Calculate budget status
   const getBudgetStatus = (budget: Budget) => {
-    const spent = getSpendingForCategory(budget.category_id || '');
+    const category = categoriesHierarchy
+      .flatMap((p) => [p, ...(p.children || [])])
+      .find((c) => c.id === budget.category_id);
+
+    // For parent categories, include children's spending
+    const isParent = !category?.parent_id;
+    const spent = getSpendingForCategory(budget.category_id || '', isParent);
+
     const remaining = budget.limit_amount - spent;
     const percentage = (spent / budget.limit_amount) * 100;
     const isOverBudget = spent > budget.limit_amount;
@@ -218,32 +266,116 @@ export default function BudgetsPage() {
           .find((c) => c.id === budgetData.category_id)?.name ||
         'this category';
 
-      alert(
-        `You already have a ${categoryName} budget for ${formatMonthYear(targetMonth)}. Delete it first or click Edit.`
+      showToast(
+        `You already have a ${categoryName} budget for ${formatMonthYear(targetMonth)}`,
+        'error'
       );
       return;
     }
 
-    const { error } = await supabase.from('budgets').insert({
-      user_id: userId,
-      ...budgetData,
-    });
+    const selectedCategory = categoriesHierarchy
+      .flatMap((p) => [p, ...(p.children || [])])
+      .find((c) => c.id === budgetData.category_id);
 
-    if (error) {
-      if (error.code === '23505') {
-        alert('A budget for this category already exists for this month.');
-      } else {
-        alert('Failed to create budget: ' + error.message);
+    const budgetsToInsert: Array<{
+      user_id: string;
+      category_id: string;
+      limit_amount: number;
+      month: string;
+    }> = [];
+
+    let parentBudgetUpdate: {
+      id: string;
+      newAmount: number;
+      reason: string;
+    } | null = null;
+
+    // Check if this is a child and if parent needs adjustment
+    if (selectedCategory?.parent_id) {
+      const parentBudget = budgets.find(
+        (b) => b.category_id === selectedCategory.parent_id
+      );
+
+      if (!parentBudget) {
+        // No parent budget exists - create one
+        budgetsToInsert.push({
+          user_id: userId,
+          category_id: selectedCategory.parent_id,
+          limit_amount: budgetData.limit_amount * 2,
+          month: budgetData.month,
+        });
+      } else if (userPreferences?.auto_adjust_parent_budgets) {
+        // Parent exists - check if it needs to be increased
+        const siblingBudgets = budgets.filter((b) => {
+          const cat = categoriesHierarchy
+            .flatMap((p) => [p, ...(p.children || [])])
+            .find((c) => c.id === b.category_id);
+          return cat?.parent_id === selectedCategory.parent_id;
+        });
+
+        const totalChildBudgets =
+          siblingBudgets.reduce((sum, b) => sum + b.limit_amount, 0) +
+          budgetData.limit_amount;
+
+        if (totalChildBudgets > parentBudget.limit_amount) {
+          // Need to increase parent budget
+          parentBudgetUpdate = {
+            id: parentBudget.id,
+            newAmount: totalChildBudgets,
+            reason: 'increased',
+          };
+        }
       }
-      return;
     }
 
-    // Refresh display if we added to the currently displayed month
+    // Add the requested budget
+    budgetsToInsert.push({
+      user_id: userId,
+      category_id: budgetData.category_id,
+      limit_amount: budgetData.limit_amount,
+      month: budgetData.month,
+    });
+
+    // Insert new budgets
+    if (budgetsToInsert.length > 0) {
+      const { error } = await supabase.from('budgets').insert(budgetsToInsert);
+
+      if (error) {
+        if (error.code === '23505') {
+          alert('A budget for this category already exists for this month.');
+        } else {
+          alert('Failed to create budget: ' + error.message);
+        }
+        return;
+      }
+    }
+
+    // Update parent budget if needed
+    if (parentBudgetUpdate) {
+      const { error: updateError } = await supabase
+        .from('budgets')
+        .update({ limit_amount: parentBudgetUpdate.newAmount })
+        .eq('id', parentBudgetUpdate.id)
+        .eq('user_id', userId);
+
+      if (updateError) {
+        console.error('Failed to update parent budget:', updateError);
+      }
+
+      const parentCategory = categoriesHierarchy.find(
+        (p) => p.id === selectedCategory?.parent_id
+      );
+      showToast(
+        `Parent budget for "${parentCategory?.name}" automatically ${parentBudgetUpdate.reason} to ${formatCurrency(parentBudgetUpdate.newAmount)}`,
+        'success'
+      );
+    }
+
+    // Refresh
     if (targetMonth === selectedMonth) {
       await fetchBudgets();
     }
 
-    // Refresh form categories for the form's current month
     await fetchExistingCategoriesForMonth(targetMonth);
   };
 
@@ -256,6 +388,93 @@ export default function BudgetsPage() {
       month: string;
     }
   ) => {
+    if (!userId) return;
+
+    const budgetBeingEdited = budgets.find((b) => b.id === id);
+    if (!budgetBeingEdited) return;
+
+    const selectedCategory = categoriesHierarchy
+      .flatMap((p) => [p, ...(p.children || [])])
+      .find((c) => c.id === budgetData.category_id);
+
+    let parentBudgetUpdate: {
+      id: string;
+      newAmount: number;
+      reason: string;
+    } | null = null;
+
+    // Check if this is a child budget and auto-adjust is enabled
+    if (
+      selectedCategory?.parent_id &&
+      userPreferences?.auto_adjust_parent_budgets
+    ) {
+      const parentBudget = budgets.find(
+        (b) => b.category_id === selectedCategory.parent_id
+      );
+
+      if (parentBudget) {
+        const siblingBudgets = budgets.filter((b) => {
+          const cat = categoriesHierarchy
+            .flatMap((p) => [p, ...(p.children || [])])
+            .find((c) => c.id === b.category_id);
+          return cat?.parent_id === selectedCategory.parent_id && b.id !== id; // Exclude the one being edited
+        });
+
+        const totalChildBudgets =
+          siblingBudgets.reduce((sum, b) => sum + b.limit_amount, 0) +
+          budgetData.limit_amount;
+
+        if (totalChildBudgets > parentBudget.limit_amount) {
+          // Need to INCREASE parent budget
+          parentBudgetUpdate = {
+            id: parentBudget.id,
+            newAmount: totalChildBudgets,
+            reason: 'increased',
+          };
+        } else if (totalChildBudgets < parentBudget.limit_amount) {
+          // Check if parent equals sum of children (exact match before this change)
+          const oldTotalChildren =
+            siblingBudgets.reduce((sum, b) => sum + b.limit_amount, 0) +
+            budgetBeingEdited.limit_amount;
+
+          if (oldTotalChildren === parentBudget.limit_amount) {
+            // Parent was exactly equal to sum - decrease it
+            parentBudgetUpdate = {
+              id: parentBudget.id,
+              newAmount: totalChildBudgets,
+              reason: 'decreased',
+            };
+          }
+        }
+      }
+    }
+
+    // Check if this is a parent budget being edited
+    if (
+      !selectedCategory?.parent_id &&
+      userPreferences?.auto_adjust_parent_budgets
+    ) {
+      const childBudgets = budgets.filter((b) => {
+        const cat = categoriesHierarchy
+          .flatMap((p) => [p, ...(p.children || [])])
+          .find((c) => c.id === b.category_id);
+        return cat?.parent_id === budgetData.category_id;
+      });
+
+      const totalChildBudgets = childBudgets.reduce(
+        (sum, b) => sum + b.limit_amount,
+        0
+      );
+
+      if (budgetData.limit_amount < totalChildBudgets) {
+        alert(
+          `Parent budget (${formatCurrency(budgetData.limit_amount)}) cannot be less than the sum of child budgets (${formatCurrency(totalChildBudgets)}). Minimum required: ${formatCurrency(totalChildBudgets)}.`
+        );
+        return;
+      }
+    }
+
+    // Update the budget
     const { error } = await supabase
       .from('budgets')
       .update({ limit_amount: budgetData.limit_amount })
@@ -265,6 +484,27 @@ export default function BudgetsPage() {
     if (error) {
       alert('Failed to update budget: ' + error.message);
       return;
+    }
+
+    // Update parent budget if needed
+    if (parentBudgetUpdate) {
+      const { error: updateError } = await supabase
+        .from('budgets')
+        .update({ limit_amount: parentBudgetUpdate.newAmount })
+        .eq('id', parentBudgetUpdate.id)
+        .eq('user_id', userId);
+
+      if (updateError) {
+        console.error('Failed to update parent budget:', updateError);
+      }
+
+      const parentCategory = categoriesHierarchy.find(
+        (p) => p.id === selectedCategory?.parent_id
+      );
+      showToast(
+        `Parent budget for "${parentCategory?.name}" automatically ${parentBudgetUpdate.reason} to ${formatCurrency(parentBudgetUpdate.newAmount)}`,
+        'success'
+      );
     }
 
     setEditingBudget(null);
@@ -297,23 +537,99 @@ export default function BudgetsPage() {
     setConfirmDelete(null);
   };
 
+  const handleCopyFromPreviousMonth = async () => {
+    if (!userId) return;
+
+    const previousMonth = getPreviousMonth(selectedMonth);
+    const { start, end } = getMonthBoundariesFromString(previousMonth);
+
+    // Fetch previous month's budgets
+    const { data: prevBudgets, error: fetchError } = await supabase
+      .from('budgets')
+      .select('category_id, limit_amount')
+      .eq('user_id', userId)
+      .gte('month', start)
+      .lt('month', end);
+
+    if (fetchError || !prevBudgets || prevBudgets.length === 0) {
+      alert('No budgets found from previous month to copy.');
+      return;
+    }
+
+    // Create new budgets for selected month
+    const newBudgets = prevBudgets.map(
+      (budget: { category_id: string | null; limit_amount: number }) => ({
+        user_id: userId,
+        category_id: budget.category_id,
+        limit_amount: budget.limit_amount,
+        month: selectedMonth + '-01',
+      })
+    );
+
+    const { error: insertError } = await supabase
+      .from('budgets')
+      .insert(newBudgets);
+
+    if (insertError) {
+      alert('Failed to copy budgets: ' + insertError.message);
+      return;
+    }
+
+    // Refresh
+    await fetchBudgets();
+    await fetchExistingCategoriesForMonth(selectedMonth);
+  };
+
   // Calculate overall stats
   const overallStats = {
-    totalBudget: budgets.reduce((sum, budget) => sum + budget.limit_amount, 0),
-    totalSpent: budgets.reduce((sum, budget) => {
-      const status = getBudgetStatus(budget);
-      return sum + status.spent;
-    }, 0),
-    categoriesOverBudget: budgets.filter(
-      (budget) => getBudgetStatus(budget).isOverBudget
-    ).length,
-    categoriesOnTrack: budgets.filter((budget) => {
-      const status = getBudgetStatus(budget);
-      return !status.isOverBudget && status.percentage < 90;
+    totalBudget: budgets
+      .filter((budget) => {
+        // Only count parent budgets
+        const category = categoriesHierarchy
+          .flatMap((p) => [p, ...(p.children || [])])
+          .find((c) => c.id === budget.category_id);
+        return !category?.parent_id; // Only parents
+      })
+      .reduce((sum, budget) => sum + budget.limit_amount, 0),
+
+    totalSpent: budgets
+      .filter((budget) => {
+        // Only count parent budgets (they already roll up child spending)
+        const category = categoriesHierarchy
+          .flatMap((p) => [p, ...(p.children || [])])
+          .find((c) => c.id === budget.category_id);
+        return !category?.parent_id;
+      })
+      .reduce((sum, budget) => {
+        const status = getBudgetStatus(budget);
+        return sum + status.spent;
+      }, 0),
+
+    categoriesOverBudget: budgets.filter((budget) => {
+      const category = categoriesHierarchy
+        .flatMap((p) => [p, ...(p.children || [])])
+        .find((c) => c.id === budget.category_id);
+      return !category?.parent_id && getBudgetStatus(budget).isOverBudget;
     }).length,
-    categoriesWarning: budgets.filter((budget) => {
+
+    categoriesOnTrack: budgets.filter((budget) => {
+      const category = categoriesHierarchy
+        .flatMap((p) => [p, ...(p.children || [])])
+        .find((c) => c.id === budget.category_id);
       const status = getBudgetStatus(budget);
-      return !status.isOverBudget && status.percentage >= 90;
+      return (
+        !category?.parent_id && !status.isOverBudget && status.percentage < 90
+      );
+    }).length,
+
+    categoriesWarning: budgets.filter((budget) => {
+      const category = categoriesHierarchy
+        .flatMap((p) => [p, ...(p.children || [])])
+        .find((c) => c.id === budget.category_id);
+      const status = getBudgetStatus(budget);
+      return (
+        !category?.parent_id && !status.isOverBudget && status.percentage >= 90
+      );
     }).length,
   };
 
@@ -410,8 +726,20 @@ export default function BudgetsPage() {
                 }
                 isEditing={!!editingBudget}
                 existingCategories={formExistingCategories}
+                existingBudgets={budgets
+                  .filter(
+                    (b): b is Budget & { category_id: string } =>
+                      !!b.category_id
+                  )
+                  .map((b) => ({
+                    category_id: b.category_id,
+                    limit_amount: b.limit_amount,
+                  }))}
                 onMonthChange={handleFormMonthChange}
                 defaultMonth={formMonth}
+                autoAdjustEnabled={
+                  userPreferences?.auto_adjust_parent_budgets ?? true
+                }
               />
             </div>
           </div>
@@ -556,46 +884,52 @@ export default function BudgetsPage() {
 
               {/* Budget List */}
               {budgets.length === 0 ? (
-                <div className="rounded-lg border-2 border-dashed border-gray-300 p-8 text-center dark:border-gray-600">
+                <div className="rounded-lg border-2 border-dashed border-gray-300 bg-white p-12 text-center dark:border-gray-600 dark:bg-gray-800">
                   <p className="text-lg font-medium text-gray-900 dark:text-white">
-                    No budgets for this month
+                    No budgets yet
                   </p>
-                  <p className="mt-2 text-sm text-gray-500">
-                    Set your first budget to start tracking spending
+                  <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                    Set your first budget to start tracking your spending
                   </p>
+
+                  {/* Show copy button if viewing future month */}
+                  {selectedMonth >= new Date().toISOString().slice(0, 7) && (
+                    <button
+                      onClick={handleCopyFromPreviousMonth}
+                      className="mt-4 inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+                    >
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                        />
+                      </svg>
+                      Copy budgets from{' '}
+                      {formatMonthYear(getPreviousMonth(selectedMonth))}
+                    </button>
+                  )}
                 </div>
               ) : (
-                <div className="space-y-">
-                  {budgets.map((budget) => {
-                    const status = getBudgetStatus(budget);
-                    const categoryInfo = categoryMap.get(
-                      budget.category_id || ''
-                    );
-                    const categoryName = categoryInfo
-                      ? categoryInfo.parent
-                        ? `${categoryInfo.parent} → ${categoryInfo.name}`
-                        : categoryInfo.name
-                      : 'Uncategorized';
-
-                    return (
-                      <div
-                        key={budget.id}
-                        className="relative rounded-lg border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow dark:border-gray-700"
-                      >
-                        <BudgetProgress
-                          categoryId={budget.category_id || ''}
-                          categoryName={categoryName}
-                          limitAmount={budget.limit_amount}
-                          spent={status.spent}
-                          percentage={status.percentage}
-                          isOverBudget={status.isOverBudget}
-                          onEdit={() => handleEditClick(budget)}
-                          onDelete={() => handleDelete(budget.id)}
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
+                <BudgetHierarchy
+                  budgets={budgets.map((budget) => ({
+                    ...budget,
+                    ...getBudgetStatus(budget),
+                  }))}
+                  categories={categoriesHierarchy.flatMap((p) => [
+                    p,
+                    ...(p.children || []),
+                  ])}
+                  categoryMap={categoryMap}
+                  onEdit={handleEditClick}
+                  onDelete={handleDelete}
+                />
               )}
             </div>
           </div>

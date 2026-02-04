@@ -6,6 +6,7 @@ import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Button from '@/components/ui/Button';
 import { useCategories } from '@/lib/hooks/useCategories';
+import { formatCurrency } from '@/lib/calculations';
 
 type BudgetFormProps = {
   onSubmit: (budget: {
@@ -20,8 +21,10 @@ type BudgetFormProps = {
   };
   isEditing?: boolean;
   existingCategories?: string[];
+  existingBudgets?: Array<{ category_id: string; limit_amount: number }>;
   onMonthChange?: (month: string) => void;
   defaultMonth?: string;
+  autoAdjustEnabled?: boolean;
 };
 
 export default function BudgetForm({
@@ -29,8 +32,10 @@ export default function BudgetForm({
   initialData,
   isEditing = false,
   existingCategories = [],
+  existingBudgets = [],
   onMonthChange,
   defaultMonth,
+  autoAdjustEnabled = true,
 }: BudgetFormProps) {
   const { categoriesHierarchy, isLoading: categoriesLoading } = useCategories();
   const [categoryId, setCategoryId] = useState<string>(
@@ -44,6 +49,7 @@ export default function BudgetForm({
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [hasUserSelected, setHasUserSelected] = useState(false);
 
   // Build available categories (not already budgeted)
   const availableCategories = categoriesHierarchy
@@ -61,17 +67,24 @@ export default function BudgetForm({
     label: opt.label,
   }));
 
-  // Update category when available categories change
+  // Only auto-select on initial mount if user hasn't selected anything
   useEffect(() => {
-    if (!isEditing && !initialData && availableCategories.length > 0) {
-      const categoryExists = availableCategories.some(
-        (c) => c.id === categoryId
-      );
-      if (categoryExists) {
-        setCategoryId(availableCategories[0].id);
-      }
+    if (
+      !isEditing &&
+      !initialData &&
+      !hasUserSelected &&
+      availableCategories.length > 0 &&
+      !categoryId
+    ) {
+      setCategoryId(availableCategories[0].id);
     }
-  }, [availableCategories, isEditing, initialData, categoryId]);
+  }, [
+    availableCategories,
+    isEditing,
+    initialData,
+    hasUserSelected,
+    categoryId,
+  ]);
 
   // Update form when editing
   useEffect(() => {
@@ -104,6 +117,76 @@ export default function BudgetForm({
       return;
     }
 
+    // Find the selected category
+    const selectedCategory = categoriesHierarchy
+      .flatMap((p) => [p, ...(p.children || [])])
+      .find((c) => c.id === categoryId);
+
+    // Only validate if auto-adjust is DISABLED
+    if (
+      !autoAdjustEnabled &&
+      selectedCategory?.parent_id &&
+      existingCategories.includes(selectedCategory.parent_id)
+    ) {
+      const parentBudget = existingBudgets.find(
+        (b) => b.category_id === selectedCategory.parent_id
+      );
+
+      if (parentBudget) {
+        // Get all sibling budgets
+        const siblingBudgets = existingBudgets.filter((b) => {
+          const cat = categoriesHierarchy
+            .flatMap((p) => [p, ...(p.children || [])])
+            .find((c) => c.id === b.category_id);
+          return (
+            cat?.parent_id === selectedCategory.parent_id &&
+            b.category_id !== categoryId
+          );
+        });
+
+        // Calculate total child budgets (including this one)
+        const totalChildBudgets =
+          siblingBudgets.reduce((sum, b) => sum + b.limit_amount, 0) +
+          parsedAmount;
+
+        if (totalChildBudgets > parentBudget.limit_amount) {
+          const parentCategory = categoriesHierarchy.find(
+            (p) => p.id === selectedCategory.parent_id
+          );
+          const remaining =
+            parentBudget.limit_amount -
+            siblingBudgets.reduce((sum, b) => sum + b.limit_amount, 0);
+          setError(
+            `Total child budgets (${formatCurrency(totalChildBudgets)}) would exceed the parent budget for "${parentCategory?.name}" (${formatCurrency(parentBudget.limit_amount)}). You have ${formatCurrency(remaining)} remaining.`
+          );
+          return;
+        }
+      }
+    }
+
+    // Validate parent budget is >= sum of children
+    if (!selectedCategory?.parent_id) {
+      // This is a parent category
+      const childBudgets = existingBudgets.filter((b) => {
+        const cat = categoriesHierarchy
+          .flatMap((p) => [p, ...(p.children || [])])
+          .find((c) => c.id === b.category_id);
+        return cat?.parent_id === categoryId;
+      });
+
+      const totalChildBudgets = childBudgets.reduce(
+        (sum, b) => sum + b.limit_amount,
+        0
+      );
+
+      if (parsedAmount < totalChildBudgets) {
+        setError(
+          `Parent budget (${formatCurrency(parsedAmount)}) cannot be less than the sum of child budgets (${formatCurrency(totalChildBudgets)}). Minimum required: ${formatCurrency(totalChildBudgets)}.`
+        );
+        return;
+      }
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -116,6 +199,7 @@ export default function BudgetForm({
       if (!isEditing) {
         setLimitAmount('');
         setMonth(new Date().toISOString().slice(0, 7));
+        setHasUserSelected(false);
         if (availableCategories.length > 1) {
           setCategoryId(availableCategories[1].id);
         }
@@ -152,64 +236,75 @@ export default function BudgetForm({
         </div>
       )}
 
-      <Select
-        label="Category"
-        id="category"
-        value={categoryId}
-        onChange={(e) => setCategoryId(e.target.value)}
-        options={categoryOptions}
-        disabled={isEditing}
-        hint={
-          !isEditing && availableCategories.length === 0
-            ? 'All categories have budgets for this month'
-            : undefined
-        }
-        required
-      />
+      {availableCategories.length === 0 && !isEditing ? (
+        <div className="rounded-md bg-blue-50 p-4 text-center dark:bg-blue-900/20">
+          <p className="font-medium text-blue-900 dark:text-blue-300">
+            All categories budgeted!
+          </p>
+          <p className="mt-1 text-sm text-blue-700 dark:text-blue-400">
+            You&apos;ve set budgets for all available categories this month.
+          </p>
+        </div>
+      ) : (
+        <>
+          <Select
+            label="Category"
+            id="category"
+            value={categoryId}
+            onChange={(e) => {
+              setCategoryId(e.target.value);
+              setHasUserSelected(true);
+            }}
+            options={categoryOptions}
+            disabled={isEditing}
+            required
+          />
 
-      <Select
-        label={isEditing ? 'Month (locked)' : 'Month'}
-        id="month"
-        value={month}
-        onChange={(e) => {
-          const newMonth = e.target.value;
-          setMonth(newMonth);
-          if (!isEditing && onMonthChange) {
-            onMonthChange(newMonth);
-          }
-        }}
-        options={monthOptions}
-        disabled={isEditing}
-        required
-      />
+          <Select
+            label={isEditing ? 'Month (locked)' : 'Month'}
+            id="month"
+            value={month}
+            onChange={(e) => {
+              const newMonth = e.target.value;
+              setMonth(newMonth);
+              if (!isEditing && onMonthChange) {
+                onMonthChange(newMonth);
+              }
+            }}
+            options={monthOptions}
+            disabled={isEditing}
+            required
+          />
 
-      <Input
-        ref={amountInputRef}
-        label="Budget Limit"
-        id="limit"
-        type="number"
-        step="0.01"
-        min="0"
-        value={limitAmount}
-        onChange={(e) => setLimitAmount(e.target.value)}
-        onFocus={(e) => e.target.select()}
-        placeholder="500.00"
-        prefix="$"
-        required
-      />
+          <Input
+            ref={amountInputRef}
+            label="Budget Limit"
+            id="limit"
+            type="number"
+            step="0.01"
+            min="0"
+            value={limitAmount}
+            onChange={(e) => setLimitAmount(e.target.value)}
+            onFocus={(e) => e.target.select()}
+            placeholder="500.00"
+            prefix="$"
+            required
+          />
 
-      <Button
-        type="submit"
-        variant="primary"
-        fullWidth
-        disabled={isSubmitting || availableCategories.length === 0}
-      >
-        {isSubmitting
-          ? 'Saving...'
-          : isEditing
-            ? 'Update Budget'
-            : 'Set Budget'}
-      </Button>
+          <Button
+            type="submit"
+            variant="primary"
+            fullWidth
+            disabled={isSubmitting || availableCategories.length === 0}
+          >
+            {isSubmitting
+              ? 'Saving...'
+              : isEditing
+                ? 'Update Budget'
+                : 'Set Budget'}
+          </Button>
+        </>
+      )}
     </form>
   );
 }

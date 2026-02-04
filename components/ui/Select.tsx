@@ -88,17 +88,27 @@ export default function Select({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, closeDropdown]);
 
-  // Scroll selected into center when open
+  // Close dropdown on scroll - BUT NOT if scrolling inside the dropdown
   useEffect(() => {
-    if (isOpen && listRef.current && selectedIndex >= 0) {
-      const el = listRef.current.children[selectedIndex] as HTMLElement;
-      if (el) {
-        el.scrollIntoView({ block: 'center', behavior: 'instant' });
-      }
-    }
-  }, [isOpen, selectedIndex]);
+    if (!isOpen) return;
 
-  // Close dropdown on scroll
+    const handleScroll = (e: Event) => {
+      // Don't close if scrolling inside the dropdown list
+      if (
+        listRef.current &&
+        (listRef.current === e.target ||
+          listRef.current.contains(e.target as Node))
+      ) {
+        return;
+      }
+      closeDropdown();
+    };
+
+    window.addEventListener('scroll', handleScroll, true); // Use capture phase
+    return () => window.removeEventListener('scroll', handleScroll, true);
+  }, [isOpen, closeDropdown]);
+
+  // And update the window scroll handler:
   useEffect(() => {
     if (!isOpen) return;
 
@@ -106,9 +116,22 @@ export default function Select({
       closeDropdown();
     };
 
-    window.addEventListener('scroll', handleScroll, true); // Use capture phase to catch all scrolls
-    return () => window.removeEventListener('scroll', handleScroll, true);
+    // Only listen to window/document scroll, not all scrolls
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
   }, [isOpen, closeDropdown]);
+
+  useEffect(() => {
+    if (isOpen && listRef.current) {
+      // Scroll selected option into view
+      const selectedOption = listRef.current.querySelector(
+        '[data-selected="true"]'
+      );
+      if (selectedOption) {
+        selectedOption.scrollIntoView({ block: 'center' });
+      }
+    }
+  }, [isOpen]);
 
   const handleOpen = () => {
     if (disabled) return;
@@ -179,7 +202,11 @@ export default function Select({
           ref={triggerRef}
           type="button"
           onClick={() => {
-            handleOpen();
+            if (isOpen) {
+              closeDropdown();
+            } else {
+              handleOpen();
+            }
           }}
           disabled={disabled}
           className={`
@@ -227,6 +254,7 @@ export default function Select({
               {options.map((opt) => (
                 <li
                   key={opt.value}
+                  data-selected={opt.value === value}
                   onClick={() => {
                     handleSelect(opt.value);
                   }}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { type Account } from '@/lib/types';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
@@ -39,7 +39,9 @@ export default function ExpenseForm({
     activeAccounts.length === 1
       ? activeAccounts[0].id
       : activeAccounts.find((a) => a.is_primary)?.id || '';
-
+  const [accountId, setAccountId] = useState(
+    initialData?.account_id || defaultAccount
+  );
   const [amount, setAmount] = useState(initialData?.amount.toString() || '');
   const [categoryId, setCategoryId] = useState(initialData?.category_id || '');
   const [description, setDescription] = useState(
@@ -48,11 +50,14 @@ export default function ExpenseForm({
   const [date, setDate] = useState(
     initialData?.date || new Date().toISOString().split('T')[0]
   );
-  const [accountId, setAccountId] = useState(
-    initialData?.account_id || defaultAccount
-  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!accountId && defaultAccount) {
+      setAccountId(defaultAccount);
+    }
+  }, [defaultAccount, accountId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

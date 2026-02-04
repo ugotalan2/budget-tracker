@@ -5,6 +5,7 @@ import Sidebar from '@/components/layout/Sidebar';
 import TopNav from '@/components/layout/TopNav';
 import { ThemeProvider } from '@/lib/contexts/ThemeContext';
 import ClerkThemeProvider from '@/components/layout/ClerkThemeProvider';
+import { ToastProvider } from '@/lib/contexts/ToastContext';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -23,13 +24,15 @@ export default function RootLayout({
       <body className={inter.className}>
         <ThemeProvider>
           <ClerkThemeProvider>
-            <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-900">
-              <Sidebar />
-              <div className="flex flex-1 flex-col overflow-hidden">
-                <TopNav />
-                <main className="flex-1 overflow-y-auto">{children}</main>
+            <ToastProvider>
+              <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-900">
+                <Sidebar />
+                <div className="flex flex-1 flex-col overflow-hidden">
+                  <TopNav />
+                  <main className="flex-1 overflow-y-auto">{children}</main>
+                </div>
               </div>
-            </div>
+            </ToastProvider>
           </ClerkThemeProvider>
         </ThemeProvider>
       </body>

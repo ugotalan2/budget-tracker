@@ -16,17 +16,6 @@ export type CategoryWithChildren = Category & {
   children?: Category[];
 };
 
-// Keep old CATEGORIES array for migration reference
-export const DEFAULT_CATEGORIES = [
-  'Food',
-  'Transportation',
-  'Shopping',
-  'Entertainment',
-  'Utilities',
-  'Healthcare',
-  'Other',
-] as const;
-
 // Color options for categories (reuse from accounts)
 export const CATEGORY_COLORS = [
   { value: '#3B82F6', label: 'Blue' },
@@ -104,5 +93,10 @@ export const ACCOUNT_COLORS = [
   { value: '#14B8A6', label: 'Teal' },
 ];
 
-// Keep for backward compatibility during migration
-export const CATEGORIES = DEFAULT_CATEGORIES;
+export type UserPreferences = {
+  id: string;
+  user_id: string;
+  auto_adjust_parent_budgets: boolean;
+  created_at: string;
+  updated_at: string;
+};
