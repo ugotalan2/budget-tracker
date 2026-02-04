@@ -19,6 +19,19 @@ import {
   getNextMonth,
   getMonthBoundariesFromString,
 } from '@/lib/dateUtils';
+import {
+  calculateChildBudgetSum,
+  shouldAutoIncrease,
+  shouldAutoDecrease,
+  calculateBudgetPercentage,
+  isOverBudget,
+  calculateRemaining,
+} from '@/lib/budgetHelpers';
+import {
+  flattenCategories,
+  findCategoryById,
+  createCategoryMap as createCategoryLookupMap,
+} from '@/lib/categoryHelpers';
 
 export default function BudgetsPage() {
   const [budgets, setBudgets] = useState<Budget[]>([]);
@@ -47,24 +60,7 @@ export default function BudgetsPage() {
 
   // Create category lookup map
   const categoryMap = useMemo(() => {
-    const map = new Map<
-      string,
-      { name: string; color: string; parent?: string }
-    >();
-
-    categoriesHierarchy.forEach((parent) => {
-      map.set(parent.id, { name: parent.name, color: parent.color });
-
-      parent.children?.forEach((child) => {
-        map.set(child.id, {
-          name: child.name,
-          color: child.color,
-          parent: parent.name,
-        });
-      });
-    });
-
-    return map;
+    return createCategoryLookupMap(categoriesHierarchy);
   }, [categoriesHierarchy]);
 
   // Fetch preferences
@@ -209,23 +205,17 @@ export default function BudgetsPage() {
 
   // Calculate budget status
   const getBudgetStatus = (budget: Budget) => {
-    const category = categoriesHierarchy
-      .flatMap((p) => [p, ...(p.children || [])])
-      .find((c) => c.id === budget.category_id);
+    const allCategories = flattenCategories(categoriesHierarchy);
+    const category = findCategoryById(allCategories, budget.category_id || '');
 
-    // For parent categories, include children's spending
     const isParent = !category?.parent_id;
     const spent = getSpendingForCategory(budget.category_id || '', isParent);
 
-    const remaining = budget.limit_amount - spent;
-    const percentage = (spent / budget.limit_amount) * 100;
-    const isOverBudget = spent > budget.limit_amount;
-
     return {
       spent,
-      remaining,
-      percentage: Math.min(percentage, 100),
-      isOverBudget,
+      remaining: calculateRemaining(spent, budget.limit_amount),
+      percentage: calculateBudgetPercentage(spent, budget.limit_amount),
+      isOverBudget: isOverBudget(spent, budget.limit_amount),
     };
   };
 
@@ -273,9 +263,11 @@ export default function BudgetsPage() {
       return;
     }
 
-    const selectedCategory = categoriesHierarchy
-      .flatMap((p) => [p, ...(p.children || [])])
-      .find((c) => c.id === budgetData.category_id);
+    const allCategories = flattenCategories(categoriesHierarchy);
+    const selectedCategory = findCategoryById(
+      allCategories,
+      budgetData.category_id
+    );
 
     const budgetsToInsert: Array<{
       user_id: string;
@@ -306,22 +298,21 @@ export default function BudgetsPage() {
         });
       } else if (userPreferences?.auto_adjust_parent_budgets) {
         // Parent exists - check if it needs to be increased
-        const siblingBudgets = budgets.filter((b) => {
-          const cat = categoriesHierarchy
-            .flatMap((p) => [p, ...(p.children || [])])
-            .find((c) => c.id === b.category_id);
-          return cat?.parent_id === selectedCategory.parent_id;
-        });
+        const allCategories = categoriesHierarchy.flatMap((p) => [
+          p,
+          ...(p.children || []),
+        ]);
+        const currentChildSum = calculateChildBudgetSum(
+          budgets,
+          selectedCategory.parent_id,
+          allCategories
+        );
+        const newChildSum = currentChildSum + budgetData.limit_amount;
 
-        const totalChildBudgets =
-          siblingBudgets.reduce((sum, b) => sum + b.limit_amount, 0) +
-          budgetData.limit_amount;
-
-        if (totalChildBudgets > parentBudget.limit_amount) {
-          // Need to increase parent budget
+        if (shouldAutoIncrease(newChildSum, parentBudget.limit_amount)) {
           parentBudgetUpdate = {
             id: parentBudget.id,
-            newAmount: totalChildBudgets,
+            newAmount: newChildSum,
             reason: 'increased',
           };
         }
@@ -413,38 +404,44 @@ export default function BudgetsPage() {
       );
 
       if (parentBudget) {
-        const siblingBudgets = budgets.filter((b) => {
-          const cat = categoriesHierarchy
-            .flatMap((p) => [p, ...(p.children || [])])
-            .find((c) => c.id === b.category_id);
-          return cat?.parent_id === selectedCategory.parent_id && b.id !== id; // Exclude the one being edited
-        });
+        const allCategories = categoriesHierarchy.flatMap((p) => [
+          p,
+          ...(p.children || []),
+        ]);
 
-        const totalChildBudgets =
-          siblingBudgets.reduce((sum, b) => sum + b.limit_amount, 0) +
-          budgetData.limit_amount;
+        // Calculate current child sum (excluding the one being edited)
+        const currentChildSum = calculateChildBudgetSum(
+          budgets.filter((b) => b.id !== id),
+          selectedCategory.parent_id,
+          allCategories
+        );
 
-        if (totalChildBudgets > parentBudget.limit_amount) {
-          // Need to INCREASE parent budget
+        const oldChildSum = calculateChildBudgetSum(
+          budgets,
+          selectedCategory.parent_id,
+          allCategories
+        );
+
+        const newChildSum = currentChildSum + budgetData.limit_amount;
+
+        if (shouldAutoIncrease(newChildSum, parentBudget.limit_amount)) {
           parentBudgetUpdate = {
             id: parentBudget.id,
-            newAmount: totalChildBudgets,
+            newAmount: newChildSum,
             reason: 'increased',
           };
-        } else if (totalChildBudgets < parentBudget.limit_amount) {
-          // Check if parent equals sum of children (exact match before this change)
-          const oldTotalChildren =
-            siblingBudgets.reduce((sum, b) => sum + b.limit_amount, 0) +
-            budgetBeingEdited.limit_amount;
-
-          if (oldTotalChildren === parentBudget.limit_amount) {
-            // Parent was exactly equal to sum - decrease it
-            parentBudgetUpdate = {
-              id: parentBudget.id,
-              newAmount: totalChildBudgets,
-              reason: 'decreased',
-            };
-          }
+        } else if (
+          shouldAutoDecrease(
+            oldChildSum,
+            newChildSum,
+            parentBudget.limit_amount
+          )
+        ) {
+          parentBudgetUpdate = {
+            id: parentBudget.id,
+            newAmount: newChildSum,
+            reason: 'decreased',
+          };
         }
       }
     }
@@ -581,23 +578,28 @@ export default function BudgetsPage() {
   };
 
   // Calculate overall stats
+  const allCategories = useMemo(
+    () => flattenCategories(categoriesHierarchy),
+    [categoriesHierarchy]
+  );
+
   const overallStats = {
     totalBudget: budgets
       .filter((budget) => {
-        // Only count parent budgets
-        const category = categoriesHierarchy
-          .flatMap((p) => [p, ...(p.children || [])])
-          .find((c) => c.id === budget.category_id);
-        return !category?.parent_id; // Only parents
+        const category = findCategoryById(
+          allCategories,
+          budget.category_id || ''
+        );
+        return !category?.parent_id;
       })
       .reduce((sum, budget) => sum + budget.limit_amount, 0),
 
     totalSpent: budgets
       .filter((budget) => {
-        // Only count parent budgets (they already roll up child spending)
-        const category = categoriesHierarchy
-          .flatMap((p) => [p, ...(p.children || [])])
-          .find((c) => c.id === budget.category_id);
+        const category = findCategoryById(
+          allCategories,
+          budget.category_id || ''
+        );
         return !category?.parent_id;
       })
       .reduce((sum, budget) => {
@@ -606,16 +608,18 @@ export default function BudgetsPage() {
       }, 0),
 
     categoriesOverBudget: budgets.filter((budget) => {
-      const category = categoriesHierarchy
-        .flatMap((p) => [p, ...(p.children || [])])
-        .find((c) => c.id === budget.category_id);
+      const category = findCategoryById(
+        allCategories,
+        budget.category_id || ''
+      );
       return !category?.parent_id && getBudgetStatus(budget).isOverBudget;
     }).length,
 
     categoriesOnTrack: budgets.filter((budget) => {
-      const category = categoriesHierarchy
-        .flatMap((p) => [p, ...(p.children || [])])
-        .find((c) => c.id === budget.category_id);
+      const category = findCategoryById(
+        allCategories,
+        budget.category_id || ''
+      );
       const status = getBudgetStatus(budget);
       return (
         !category?.parent_id && !status.isOverBudget && status.percentage < 90
@@ -623,9 +627,10 @@ export default function BudgetsPage() {
     }).length,
 
     categoriesWarning: budgets.filter((budget) => {
-      const category = categoriesHierarchy
-        .flatMap((p) => [p, ...(p.children || [])])
-        .find((c) => c.id === budget.category_id);
+      const category = findCategoryById(
+        allCategories,
+        budget.category_id || ''
+      );
       const status = getBudgetStatus(budget);
       return (
         !category?.parent_id && !status.isOverBudget && status.percentage >= 90

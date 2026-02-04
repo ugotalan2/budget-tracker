@@ -9,6 +9,7 @@ import Button from '@/components/ui/Button';
 import CategoryForm from '@/components/categories/CategoryForm';
 import CategoryItemMenu from '@/components/categories/CategoryItemMenu';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import { updateSortOrders } from '@/lib/categoryHelpers';
 import {
   DndContext,
   KeyboardSensor,
@@ -414,16 +415,13 @@ export default function CategoriesPage() {
       ];
       setCategories(allCategories);
 
-      const updates = newParentOrder.map((category, index) => ({
-        id: category.id,
-        sort_order: index,
-      }));
+      const updatedOrder = updateSortOrders(newParentOrder);
 
-      for (const update of updates) {
+      for (const category of updatedOrder) {
         await supabase
           .from('categories')
-          .update({ sort_order: update.sort_order })
-          .eq('id', update.id)
+          .update({ sort_order: category.sort_order })
+          .eq('id', category.id)
           .eq('user_id', userId);
       }
     }
@@ -478,16 +476,13 @@ export default function CategoriesPage() {
         setCategories([...otherCategories, ...newOrder]);
 
         // Update database
-        const updates = newOrder.map((category, index) => ({
-          id: category.id,
-          sort_order: index,
-        }));
+        const updatedOrder = updateSortOrders(newOrder);
 
-        for (const update of updates) {
+        for (const category of updatedOrder) {
           await supabase
             .from('categories')
-            .update({ sort_order: update.sort_order })
-            .eq('id', update.id)
+            .update({ sort_order: category.sort_order })
+            .eq('id', category.id)
             .eq('user_id', userId);
         }
       }
@@ -519,8 +514,9 @@ export default function CategoriesPage() {
                   cat.parent_id === activeCategory.parent_id &&
                   cat.id !== activeCategory.id
               );
-              const newIndex = oldSiblings.findIndex((s) => s.id === c.id);
-              return { ...c, sort_order: newIndex };
+              const reordered = updateSortOrders(oldSiblings);
+              const updated = reordered.find((s) => s.id === c.id);
+              return updated || c;
             }
             return c;
           });
@@ -529,11 +525,11 @@ export default function CategoriesPage() {
         const newParentChildren = updatedCategories.filter(
           (c) => c.parent_id === newParentId
         );
-        const withMovedItem = [
+        const withMovedItem = updateSortOrders([
           ...newParentChildren.slice(0, overIndex),
           movedItem,
           ...newParentChildren.slice(overIndex),
-        ].map((c, index) => ({ ...c, sort_order: index }));
+        ]);
 
         // Final categories array
         const finalCategories = [

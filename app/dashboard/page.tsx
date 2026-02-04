@@ -16,7 +16,9 @@ import {
   generateMonthOptions,
   getPreviousMonth,
   getNextMonth,
+  getMonthBoundariesFromString,
 } from '@/lib/dateUtils';
+import { createCategoryMap as createCategoryLookupMap } from '@/lib/categoryHelpers';
 
 export default function DashboardPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -32,17 +34,7 @@ export default function DashboardPage() {
   const supabase = createClient();
 
   const categoryMap = useMemo(() => {
-    const map = new Map<string, { name: string; color: string }>();
-
-    categoriesHierarchy.forEach((parent) => {
-      map.set(parent.id, { name: parent.name, color: parent.color });
-
-      parent.children?.forEach((child) => {
-        map.set(child.id, { name: child.name, color: child.color });
-      });
-    });
-
-    return map;
+    return createCategoryLookupMap(categoriesHierarchy);
   }, [categoriesHierarchy]);
 
   // Fetch data for selected month
@@ -50,17 +42,13 @@ export default function DashboardPage() {
     if (!userId) return;
 
     setIsLoading(true);
-    const monthStart = selectedMonth + '-01';
-    const nextMonth = new Date(selectedMonth + '-01');
-    nextMonth.setMonth(nextMonth.getMonth() + 1);
-    const monthEnd = nextMonth.toISOString().slice(0, 10);
+    const { start: monthStart, end: monthEnd } =
+      getMonthBoundariesFromString(selectedMonth);
 
     // Previous month dates
     const prevMonthDate = getPreviousMonth(selectedMonth);
-    const prevMonthStart = prevMonthDate + '-01';
-    const prevMonthNext = new Date(prevMonthDate + '-01');
-    prevMonthNext.setMonth(prevMonthNext.getMonth() + 1);
-    const prevMonthEnd = prevMonthNext.toISOString().slice(0, 10);
+    const { start: prevMonthStart, end: prevMonthEnd } =
+      getMonthBoundariesFromString(prevMonthDate);
 
     const [expensesRes, budgetsRes, prevExpensesRes] = await Promise.all([
       supabase

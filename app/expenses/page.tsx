@@ -29,6 +29,10 @@ import {
   getMonthBoundariesFromString,
   formatMonthYear,
 } from '@/lib/dateUtils';
+import {
+  flattenCategories,
+  createCategoryMap as createCategoryLookupMap,
+} from '@/lib/categoryHelpers';
 
 export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -215,14 +219,19 @@ export default function ExpensesPage() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  const allCategories = useMemo(
+    () => flattenCategories(categoriesHierarchy),
+    [categoriesHierarchy]
+  );
+
   // Generate filter description for export menu
   const filterLabel = (() => {
     const parts: string[] = [];
 
     if (categoryFilter !== 'All') {
-      const selectedCategory = categoriesHierarchy
-        .flatMap((p) => [p, ...(p.children || [])])
-        .find((c) => c.id === categoryFilter);
+      const selectedCategory = allCategories.find(
+        (c) => c.id === categoryFilter
+      );
 
       if (selectedCategory) {
         parts.push(`${selectedCategory.name} expenses`);
@@ -238,24 +247,7 @@ export default function ExpensesPage() {
 
   // Create a category lookup map
   const categoryMap = useMemo(() => {
-    const map = new Map<
-      string,
-      { name: string; color: string; parent?: string }
-    >();
-
-    categoriesHierarchy.forEach((parent) => {
-      map.set(parent.id, { name: parent.name, color: parent.color });
-
-      parent.children?.forEach((child) => {
-        map.set(child.id, {
-          name: child.name,
-          color: child.color,
-          parent: parent.name,
-        });
-      });
-    });
-
-    return map;
+    return createCategoryLookupMap(categoriesHierarchy);
   }, [categoriesHierarchy]);
 
   // Add expense
@@ -638,10 +630,8 @@ export default function ExpensesPage() {
                     ) : (
                       <>
                         No{' '}
-                        {categoriesHierarchy
-                          .flatMap((p) => [p, ...(p.children || [])])
-                          .find((c) => c.id === categoryFilter)?.name ||
-                          ''}{' '}
+                        {allCategories.find((c) => c.id === categoryFilter)
+                          ?.name || ''}{' '}
                         expenses found.
                       </>
                     )}

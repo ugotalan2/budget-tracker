@@ -6,8 +6,8 @@ import {
   groupExpensesByCategory,
   formatCurrency,
   getMonthLabel,
-} from './calculations';
-import { Expense } from './types';
+} from '../calculations';
+import { Expense } from '../types';
 
 const mockExpenses: Expense[] = [
   {
