@@ -11,45 +11,71 @@ import {
   sortCategoriesByOrder,
   updateSortOrders,
 } from '../categoryHelpers';
+import { Category } from '../types';
 
 describe('categoryHelpers', () => {
-  const mockCategories = [
+  const mockCategories: Array<Category & { children?: Category[] }> = [
     {
       id: 'parent-1',
+      user_id: 'test-user',
       name: 'Housing',
       parent_id: null,
       color: '#3B82F6',
       sort_order: 1,
+      icon: null,
+      is_active: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
       children: [
         {
           id: 'child-1',
+          user_id: 'test-user',
           name: 'Rent',
           parent_id: 'parent-1',
           color: '#3B82F6',
           sort_order: 1,
+          icon: null,
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         },
         {
           id: 'child-2',
+          user_id: 'test-user',
           name: 'Utilities',
           parent_id: 'parent-1',
           color: '#3B82F6',
           sort_order: 2,
+          icon: null,
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         },
       ],
     },
     {
       id: 'parent-2',
+      user_id: 'test-user',
       name: 'Food',
       parent_id: null,
       color: '#10B981',
       sort_order: 2,
+      icon: null,
+      is_active: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
       children: [
         {
           id: 'child-3',
+          user_id: 'test-user',
           name: 'Groceries',
           parent_id: 'parent-2',
           color: '#10B981',
           sort_order: 1,
+          icon: null,
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         },
       ],
     },
@@ -150,41 +176,55 @@ describe('categoryHelpers', () => {
     });
 
     it('should return empty array for parent with no children', () => {
-      const mockWithNoChildren = [
+      const mockWithNoChildren: Array<Category & { children?: Category[] }> = [
         {
           id: 'parent-3',
+          user_id: 'test-user',
           name: 'Empty',
           parent_id: null,
           color: '#000',
           sort_order: 1,
+          icon: null,
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         },
       ];
 
       const children = getChildrenOfParent(mockWithNoChildren, 'parent-3');
-
       expect(children).toEqual([]);
     });
   });
 
   describe('isParentCategory', () => {
     it('should identify parent categories', () => {
-      const parent = {
+      const parent: Category = {
         id: 'p1',
+        user_id: 'test-user',
         name: 'Parent',
         parent_id: null,
         color: '#000',
         sort_order: 1,
+        icon: null,
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       };
       expect(isParentCategory(parent)).toBe(true);
     });
 
     it('should identify child categories', () => {
-      const child = {
+      const child: Category = {
         id: 'c1',
+        user_id: 'test-user',
         name: 'Child',
         parent_id: 'p1',
         color: '#000',
         sort_order: 1,
+        icon: null,
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       };
       expect(isParentCategory(child)).toBe(false);
     });
@@ -192,23 +232,33 @@ describe('categoryHelpers', () => {
 
   describe('isChildCategory', () => {
     it('should identify child categories', () => {
-      const child = {
+      const child: Category = {
         id: 'c1',
+        user_id: 'test-user',
         name: 'Child',
         parent_id: 'p1',
         color: '#000',
         sort_order: 1,
+        icon: null,
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       };
       expect(isChildCategory(child)).toBe(true);
     });
 
     it('should identify parent categories', () => {
-      const parent = {
+      const parent: Category = {
         id: 'p1',
+        user_id: 'test-user',
         name: 'Parent',
         parent_id: null,
         color: '#000',
         sort_order: 1,
+        icon: null,
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       };
       expect(isChildCategory(parent)).toBe(false);
     });
