@@ -20,8 +20,10 @@ const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
       <button
         ref={ref}
         className={`
-          rounded-md p-1.5 border border-gray-300 transition-colors
+          rounded-md border border-gray-300 transition-colors
           dark:border-gray-600
+          h-12 w-12 flex items-center justify-center
+          md:h-9 md:w-9 md:p-1.5
           ${variantStyles[variant]}
           ${className}
         `}

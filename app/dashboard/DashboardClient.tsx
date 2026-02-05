@@ -17,6 +17,7 @@ import {
   getPreviousMonth,
   getNextMonth,
   getMonthBoundariesFromString,
+  getCurrentMonth,
 } from '@/lib/dateUtils';
 import { createCategoryMap as createCategoryLookupMap } from '@/lib/categoryHelpers';
 
@@ -25,9 +26,7 @@ export default function DashboardClient() {
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const { categoriesHierarchy } = useCategories();
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedMonth, setSelectedMonth] = useState(
-    new Date().toISOString().slice(0, 7)
-  );
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
   const [prevMonthExpenses, setPrevMonthExpenses] = useState<Expense[]>([]);
 
   const { userId } = useAuth();
@@ -164,28 +163,17 @@ export default function DashboardClient() {
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8 dark:bg-gray-900">
       <div className="mx-auto max-w-7xl px-2 sm:px-4 md:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-              Dashboard
-            </h1>
-            <p className="mt-2 text-gray-600 dark:text-gray-400">
-              Your spending overview for{' '}
-              {new Date(selectedMonth + '-01').toLocaleDateString('en-US', {
-                month: 'long',
-                year: 'numeric',
-              })}
-            </p>
-          </div>
-
-          {/* Month Navigation */}
-          <div className="flex items-center gap-2">
+        {/* Month Navigation - Stack on mobile */}
+        <div className="relative z-10 mb-6 flex flex-col gap-3">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white text-center sm:text-left">
+            Your spending overview
+          </h2>
+          <div className="flex items-center justify-center gap-2 sm:justify-start">
             <IconButton
               icon={<ChevronLeft className="h-4 w-4" />}
               onClick={() => setSelectedMonth(getPreviousMonth(selectedMonth))}
             />
-            <div className="w-44">
+            <div className="flex-1 sm:flex-none sm:w-44">
               <Select
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
