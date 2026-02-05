@@ -6,65 +6,56 @@ import { useAuth } from '@clerk/nextjs';
 import {
   LayoutDashboard,
   Receipt,
+  Target,
+  FolderOpen,
   Wallet,
-  Settings,
-  CreditCard,
-  Tag,
 } from 'lucide-react';
 
 export default function Sidebar() {
   const pathname = usePathname();
   const { isSignedIn } = useAuth();
 
-  const links = [
-    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/expenses', label: 'Expenses', icon: Receipt },
-    { href: '/budgets', label: 'Budgets', icon: Wallet },
-    { href: '/accounts', label: 'Accounts', icon: CreditCard },
-    { href: '/categories', label: 'Categories', icon: Tag },
-    { href: '/settings', label: 'Settings', icon: Settings },
+  // Don't show sidebar if not signed in
+  if (!isSignedIn) {
+    return null;
+  }
+
+  const navItems = [
+    { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { href: '/expenses', icon: Receipt, label: 'Expenses' },
+    { href: '/budgets', icon: Target, label: 'Budgets' },
+    { href: '/categories', icon: FolderOpen, label: 'Categories' },
+    { href: '/accounts', icon: Wallet, label: 'Accounts' },
   ];
 
   return (
-    <div className="flex h-screen w-64 flex-col border-r border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
-      {/* Logo */}
+    <aside className="hidden md:flex h-screen w-64 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
       <div className="flex h-16 items-center border-b border-gray-200 px-6 dark:border-gray-800">
-        <Link
-          href="/"
-          className="flex items-center hover:opacity-80 transition-opacity"
-        >
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600">
-            <span className="text-lg font-bold text-white">B</span>
-          </div>
-          <span className="ml-3 text-lg font-bold text-gray-900 dark:text-white">
-            Budget Tracker
-          </span>
-        </Link>
+        <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+          Budget Tracker
+        </h1>
       </div>
+      <nav className="flex-1 space-y-1 px-3 py-4">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = pathname === item.href;
 
-      {/* Navigation — only show when signed in */}
-      {isSignedIn && (
-        <nav className="flex-1 space-y-1 px-3 py-4">
-          {links.map((link) => {
-            const Icon = link.icon;
-            const isActive = pathname === link.href;
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200'
-                }`}
-              >
-                <Icon className="h-5 w-5" />
-                {link.label}
-              </Link>
-            );
-          })}
-        </nav>
-      )}
-    </div>
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                isActive
+                  ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
+                  : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
+              }`}
+            >
+              <Icon className="h-5 w-5" />
+              {item.label}
+            </Link>
+          );
+        })}
+      </nav>
+    </aside>
   );
 }

@@ -1,53 +1,39 @@
 'use client';
 
-import {
-  SignInButton,
-  SignUpButton,
-  SignedIn,
-  SignedOut,
-  UserButton,
-} from '@clerk/nextjs';
-import { usePathname } from 'next/navigation';
-import ThemeSettings from '@/components/layout/ThemeSettings';
+import { UserButton, useAuth, SignInButton, SignUpButton } from '@clerk/nextjs';
+import ThemeSettings from './ThemeSettings';
 import Button from '@/components/ui/Button';
 
-const pageLabels: Record<string, string> = {
-  '/dashboard': 'Dashboard',
-  '/expenses': 'Expenses',
-  '/budgets': 'Budgets',
-  '/settings': 'Settings',
-};
-
 export default function TopNav() {
-  const pathname = usePathname();
-  const pageLabel = pageLabels[pathname] || '';
+  const { isSignedIn } = useAuth();
 
   return (
-    <div className="flex h-16 items-center justify-between border-b border-gray-200 bg-white px-6 dark:border-gray-700 dark:bg-gray-800">
-      <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
-        {pageLabel}
-      </h1>
-
-      <div className="flex items-center gap-3">
+    <header className="border-b border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+      <div className="flex h-16 items-center justify-end gap-4 px-6">
         <ThemeSettings />
-
-        <SignedOut>
-          <SignUpButton>
-            <Button variant="secondary" size="sm">
-              Sign Up
-            </Button>
-          </SignUpButton>
-          <SignInButton>
-            <Button variant="primary" size="sm">
-              Sign In
-            </Button>
-          </SignInButton>
-        </SignedOut>
-
-        <SignedIn>
-          <UserButton />
-        </SignedIn>
+        {isSignedIn ? (
+          <UserButton
+            appearance={{
+              elements: {
+                rootBox: 'after-sign-out-url-/',
+              },
+            }}
+          />
+        ) : (
+          <div className="flex items-center gap-3">
+            <SignInButton mode="modal">
+              <Button variant="secondary" size="sm">
+                Sign In
+              </Button>
+            </SignInButton>
+            <SignUpButton mode="modal">
+              <Button variant="primary" size="sm">
+                Sign Up
+              </Button>
+            </SignUpButton>
+          </div>
+        )}
       </div>
-    </div>
+    </header>
   );
 }
