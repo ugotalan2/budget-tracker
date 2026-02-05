@@ -1,11 +1,8 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { Settings } from 'lucide-react';
-import Link from 'next/link';
-import { UserButton, useAuth, SignInButton } from '@clerk/nextjs';
-import ThemeSettings from './ThemeSettings';
-import Button from '@/components/ui/Button';
+import { useAuth } from '@clerk/nextjs';
+import MobileMenu from './MobileMenu';
 
 const pageTitles: Record<string, string> = {
   '/dashboard': 'Dashboard',
@@ -27,28 +24,8 @@ export default function MobileTopBar() {
         <h1 className="text-xl font-bold text-gray-900 dark:text-white">
           {title}
         </h1>
-        <div className="flex items-center gap-2">
-          <ThemeSettings />
-          {isSignedIn ? (
-            <>
-              <Link
-                href="/settings"
-                className="rounded-lg p-2 text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
-              >
-                <Settings className="h-5 w-5" />
-              </Link>
-              <UserButton afterSignOutUrl="/" />
-            </>
-          ) : (
-            <div className="flex items-center gap-2">
-              <SignInButton mode="modal">
-                <Button variant="primary" size="sm">
-                  Sign In
-                </Button>
-              </SignInButton>
-            </div>
-          )}
-        </div>
+
+        {isSignedIn && <MobileMenu />}
       </div>
     </div>
   );

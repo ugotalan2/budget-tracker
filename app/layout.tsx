@@ -17,8 +17,8 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body>
         <ThemeProvider>
-          <ClerkThemeProvider>
-            <ClerkProvider>
+          <ClerkProvider>
+            <ClerkThemeProvider>
               <ToastProvider>
                 <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-900">
                   {/* Desktop Sidebar - hidden on mobile */}
@@ -44,8 +44,8 @@ export default function RootLayout({
                   </div>
                 </div>
               </ToastProvider>
-            </ClerkProvider>
-          </ClerkThemeProvider>
+            </ClerkThemeProvider>
+          </ClerkProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -1,89 +1,69 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  ReactNode,
+} from 'react';
 
-type ThemeMode = 'light' | 'dark' | 'system';
-type Theme = 'light' | 'dark';
+type Theme = 'light' | 'dark' | 'system';
 
-type ThemeContextType = {
-  themeMode: ThemeMode;
+interface ThemeContextType {
   theme: Theme;
-  setThemeMode: (mode: ThemeMode) => void;
-};
+  setTheme: (theme: Theme) => void;
+  toggleTheme: () => void;
+}
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [themeMode, setThemeModeState] = useState<ThemeMode>('system');
-  const [theme, setTheme] = useState<Theme>('light');
+export function ThemeProvider({ children }: { children: ReactNode }) {
+  const [theme, setThemeState] = useState<Theme>('system');
   const [mounted, setMounted] = useState(false);
 
-  // Load theme mode from localStorage on mount
   useEffect(() => {
-    const savedMode = localStorage.getItem('themeMode') as ThemeMode | null;
-    setThemeModeState(savedMode || 'system');
     setMounted(true);
+    const stored = localStorage.getItem('theme') as Theme;
+    if (stored) {
+      setThemeState(stored);
+    }
   }, []);
 
-  // Update theme based on mode
   useEffect(() => {
     if (!mounted) return;
 
-    const updateTheme = () => {
-      let actualTheme: Theme;
+    const root = window.document.documentElement;
+    root.classList.remove('light', 'dark');
 
-      if (themeMode === 'system') {
-        const systemTheme = window.matchMedia('(prefers-color-scheme: dark)')
-          .matches
-          ? 'dark'
-          : 'light';
-        actualTheme = systemTheme;
-      } else {
-        actualTheme = themeMode;
-      }
-
-      setTheme(actualTheme);
-    };
-
-    updateTheme();
-
-    // Only listen for system changes when in system mode
-    if (themeMode === 'system') {
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-      const handleChange = () => {
-        updateTheme();
-      };
-
-      mediaQuery.addEventListener('change', handleChange);
-      return () => mediaQuery.removeEventListener('change', handleChange);
-    }
-  }, [themeMode, mounted]);
-
-  // Update DOM and localStorage
-  useEffect(() => {
-    if (!mounted) return;
-
-    const root = document.documentElement;
-
-    if (theme === 'dark') {
-      root.classList.add('dark');
+    if (theme === 'system') {
+      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)')
+        .matches
+        ? 'dark'
+        : 'light';
+      root.classList.add(systemTheme);
     } else {
-      root.classList.remove('dark');
+      root.classList.add(theme);
     }
+
+    localStorage.setItem('theme', theme);
   }, [theme, mounted]);
 
-  const setThemeMode = (mode: ThemeMode) => {
-    setThemeModeState(mode);
-    localStorage.setItem('themeMode', mode);
+  const setTheme = (newTheme: Theme) => {
+    setThemeState(newTheme);
   };
 
-  // Prevent flash of unstyled content
-  if (!mounted) {
-    return null;
-  }
+  const toggleTheme = () => {
+    setThemeState((prev) => {
+      if (prev === 'light') return 'dark';
+      if (prev === 'dark') return 'system';
+      return 'light';
+    });
+  };
 
+  // Always provide the context, even before mounted
   return (
-    <ThemeContext.Provider value={{ themeMode, theme, setThemeMode }}>
+    <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>
       {children}
     </ThemeContext.Provider>
   );
